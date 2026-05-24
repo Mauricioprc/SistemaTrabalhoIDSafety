@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Sistema ID</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8f9fa; }
+        .navbar-custom { background-color: #ffffff; box-shadow: 0 4px 20px rgba(0,0,0,0.03); padding: 1rem 0; }
+        .brand-logo { text-decoration: none; transition: transform 0.2s; }
+        .brand-logo:hover { transform: scale(1.1); }
+        .nav-pills-custom .nav-link { color: #6c757d; font-weight: 700; padding: 0.8rem 2rem; border-radius: 50px; transition: all 0.3s ease; font-size: 1.1rem; display: flex; align-items: center; gap: 10px; }
+        .nav-pills-custom .nav-link i { font-size: 1.3rem; }
+        .nav-pills-custom .nav-link:hover { color: var(--primary); background-color: rgba(0,0,0,0.03); transform: translateY(-2px); }
+        .nav-pills-custom .nav-link.active { background-color: var(--primary); color: #fff !important; box-shadow: 0 6px 15px rgba(0,0,0,0.2); }
+        .nav-pills-custom .nav-link.active i { color: #fff !important; }
+        .user-profile { width: 45px; height: 45px; background-color: #f1f3f5; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--primary); cursor: pointer; transition: 0.2s; font-size: 1.2rem; }
+        .user-profile:hover { background-color: #e9ecef; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-custom fixed-top">
+      <div class="container-fluid px-5">
+        <a class="brand-logo" href="/"><i class="bi bi-box-seam-fill text-success" style="font-size: 2.5rem;"></i></a>
+        <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"><span class="navbar-toggler-icon"></span></button>
+        <div class="collapse navbar-collapse justify-content-center" id="navbarNav">
+            <ul class="navbar-nav nav-pills-custom gap-3">
+                <li class="nav-item"><a class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" href="/"><i class="bi bi-grid-fill"></i> Dashboard</a></li>
+                <li class="nav-item"><a class="nav-link {% if request.endpoint == 'raizen' or request.endpoint == 'detalhe_unidade' %}active{% endif %}" href="/raizen"><i class="bi bi-building-fill"></i> Raízen</a></li>
+                <li class="nav-item"><a class="nav-link {% if request.endpoint == 'cobranca' or request.endpoint == 'detalhe_cliente' %}active{% endif %}" href="/cobranca"><i class="bi bi-wallet-fill"></i> Cobrança</a></li>
+                <li class="nav-item"><a class="nav-link {% if request.endpoint == 'tarefas' %}active{% endif %}" href="/tarefas"><i class="bi bi-kanban-fill"></i> Tarefas</a></li>
+            </ul>
+        </div>
+        <div class="d-none d-lg-flex align-items-center gap-3">
+            <a href="/backup" class="user-profile text-decoration-none" title="Fazer Backup do Sistema">
+                <i class="bi bi-cloud-download-fill"></i>
+            </a>
+            <div class="user-profile bg-dark text-white" title="Perfil"><i class="bi bi-person-fill"></i></div>
+        </div>
+      </div>
+    </nav>
+    <div style="height: 120px;"></div>
+    <div class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm border-0" style="border-radius: 12px;">
+                        <i class="bi bi-info-circle-fill me-2"></i> {{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        {% block content %}{% endblock %}
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>setTimeout(function() { let alerts = document.querySelectorAll('.alert'); alerts.forEach(function(alert) { var bsAlert = new bootstrap.Alert(alert); bsAlert.close(); }); }, 4000);</script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>
