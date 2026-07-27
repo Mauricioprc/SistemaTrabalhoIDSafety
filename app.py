@@ -37,8 +37,19 @@ def formatar_moeda(valor):
     except:
         return "R$ 0,00"
 
+def link_whatsapp(telefone):
+    digits = re.sub(r'\D', '', telefone or '')
+    if not digits:
+        return ''
+    if not digits.startswith('55'):
+        digits = '55' + digits
+    return f'https://wa.me/{digits}'
+
 app.jinja_env.filters['cnpj'] = formatar_cnpj
 app.jinja_env.filters['moeda'] = formatar_moeda
+app.jinja_env.filters['whatsapp'] = link_whatsapp
+
+CRITICO_DIAS = 15
 
 # --- MODELOS ---
 
@@ -93,6 +104,15 @@ class Cliente(db.Model):
     def valor_pendente(self):
         return sum(p.valor for p in self.propostas if p.status_cobranca != 'Ok')
 
+    @property
+    def dias_parado_maximo(self):
+        pendentes = [p.dias_parado for p in self.propostas if p.status_cobranca == 'Pendente']
+        return max(pendentes) if pendentes else 0
+
+    @property
+    def qtd_pendentes(self):
+        return sum(1 for p in self.propostas if p.status_cobranca == 'Pendente')
+
 class Proposta(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     numero_proposta = db.Column(db.String(50), unique=True, nullable=False)
@@ -108,6 +128,12 @@ class Proposta(db.Model):
     vendedor = db.Column(db.String(100))
     observacoes = db.Column(db.Text)
     cliente_id = db.Column(db.Integer, db.ForeignKey('cliente.id'), nullable=False)
+
+    @property
+    def dias_parado(self):
+        if not self.data_criacao_proposta:
+            return 0
+        return (datetime.utcnow() - self.data_criacao_proposta).days
 
 # --- ROTAS GERAIS ---
 
@@ -409,11 +435,40 @@ def cobranca():
             except Exception as e:
                 flash(f'Erro: {str(e)}', 'danger')
         return redirect(url_for('cobranca'))
-    q = request.args.get('q', ''); query = Cliente.query
+
+    q = request.args.get('q', '')
+    filtro = request.args.get('filtro', 'todos')
+    ordenar_valor = request.args.get('ordenar') == 'valor'
+
+    todos_clientes = Cliente.query.all()
+    total_pendente = sum(c.valor_pendente for c in todos_clientes if c.status_cobranca != 'Ok')
+    qtd_pendentes = sum(1 for c in todos_clientes if c.status_cobranca == 'Pendente')
+    qtd_negociando = sum(1 for c in todos_clientes if c.status_cobranca == 'Em Negociação')
+    qtd_criticos = sum(1 for c in todos_clientes if c.dias_parado_maximo > CRITICO_DIAS)
+
+    clientes = todos_clientes
     if q:
-        s = f"%{q}%"; query = query.filter(Cliente.razao_social.like(s) | Cliente.cnpj.like(s))
-    clientes = sorted(query.all(), key=lambda c: c.valor_pendente, reverse=True)
-    return render_template('clientes_lista.html', clientes=clientes, q=q)
+        s = q.lower()
+        clientes = [c for c in clientes if s in (c.razao_social or '').lower() or s in (c.cnpj or '')]
+
+    if filtro == 'pendentes':
+        clientes = [c for c in clientes if c.status_cobranca == 'Pendente']
+    elif filtro == 'negociando':
+        clientes = [c for c in clientes if c.status_cobranca == 'Em Negociação']
+    elif filtro == 'criticos':
+        clientes = [c for c in clientes if c.dias_parado_maximo > CRITICO_DIAS]
+    elif filtro == 'ok':
+        clientes = [c for c in clientes if c.status_cobranca == 'Ok']
+
+    prioridade = {'Pendente': 0, 'Em Negociação': 1, 'Ok': 2}
+    if ordenar_valor:
+        clientes.sort(key=lambda c: (prioridade.get(c.status_cobranca, 1), -c.valor_pendente))
+    else:
+        clientes.sort(key=lambda c: (prioridade.get(c.status_cobranca, 1), -c.dias_parado_maximo, -c.valor_pendente))
+
+    return render_template('clientes_lista.html', clientes=clientes, q=q, filtro=filtro, ordenar_valor=ordenar_valor,
+                           total_pendente=total_pendente, qtd_pendentes=qtd_pendentes,
+                           qtd_negociando=qtd_negociando, qtd_criticos=qtd_criticos, critico_dias=CRITICO_DIAS)
 
 @app.route('/proposta/<int:id>/status/<status>')
 def marcar_status_proposta(id, status):
@@ -424,9 +479,26 @@ def marcar_status_proposta(id, status):
         flash(f'Proposta #{p.numero_proposta}: {status}.', 'info')
     return redirect(request.referrer or url_for('cobranca'))
 
+@app.route('/cliente/<int:id>/propostas/status/<status>')
+def marcar_status_propostas_lote(id, status):
+    cliente = Cliente.query.get_or_404(id)
+    atualizadas = 0
+    for p in cliente.propostas:
+        if p.status_cobranca == 'Pendente':
+            p.status_cobranca = status
+            atualizadas += 1
+    db.session.commit()
+    flash(f'{atualizadas} proposta(s) marcadas como {status}.', 'info')
+    return redirect(request.referrer or url_for('detalhe_cliente', id=id))
+
 @app.route('/raizen/propostas')
 def raizen_propostas():
+    q = request.args.get('q', '')
     unidades = Unidade.query.all()
+    if q:
+        s = q.lower()
+        unidades = [u for u in unidades if s in (u.nome or '').lower() or s in (u.cidade or '').lower()]
+
     grupos = []
     for u in unidades:
         cnpj_limpo = limpar_input(u.cnpj)
@@ -435,7 +507,9 @@ def raizen_propostas():
         cliente = Cliente.query.filter_by(cnpj=cnpj_limpo).first()
         if cliente and cliente.propostas:
             grupos.append((u, cliente))
-    return render_template('raizen_propostas.html', grupos=grupos)
+
+    grupos.sort(key=lambda g: (-g[1].dias_parado_maximo, -g[1].valor_pendente))
+    return render_template('raizen_propostas.html', grupos=grupos, q=q, critico_dias=CRITICO_DIAS)
 
 @app.route('/cliente/<int:id>', methods=['GET', 'POST'])
 def detalhe_cliente(id):

@@ -4,39 +4,83 @@
 
 <div class="mb-4">
     <h1 class="fw-bold text-primary-custom">Propostas por Unidade (Raízen)</h1>
-    <p class="text-muted">Propostas agrupadas pela unidade correspondente ao CNPJ do cliente.</p>
+    <p class="text-muted">Unidades mais críticas aparecem primeiro e já vêm abertas.</p>
 </div>
 
-{% for unidade, cliente in grupos %}
-<div class="card shadow-sm border mb-4">
-    <div class="card-header bg-light fw-bold d-flex justify-content-between align-items-center">
-        <span><i class="bi bi-building me-2"></i>{{ unidade.nome }}</span>
-        <span class="badge bg-danger">{{ cliente.valor_pendente | moeda }}</span>
+<form method="GET" class="mb-4">
+    <div class="input-group input-group-lg shadow-sm" style="border-radius: 12px; overflow: hidden;">
+        <span class="input-group-text bg-white border-0 ps-4 text-muted"><i class="bi bi-search"></i></span>
+        <input type="text" name="q" class="form-control border-0" placeholder="Buscar unidade por nome ou cidade..." value="{{ q }}">
+        <button type="submit" class="btn btn-primary-custom fw-bold px-4">Buscar</button>
     </div>
-    <div class="card-body">
-        <div class="row g-3">
-            {% for p in cliente.propostas|sort(attribute='data_criacao_proposta', reverse=true) %}
-            <div class="col-md-6">
-                <div class="card border shadow-sm {{ 'border-danger' if p.status_cobranca == 'Pendente' }}">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between">
-                            <span class="fw-bold">Proposta #{{ p.numero_proposta }}</span>
-                            <span class="badge bg-danger">{{ p.valor | moeda }}</span>
-                        </div>
-                        <small class="text-muted d-block">{{ p.data_criacao_proposta.strftime('%d/%m/%Y') if p.data_criacao_proposta }} — {{ p.contato }}</small>
-                        <div class="btn-group btn-group-sm mt-2 w-100">
-                            <a href="/proposta/{{ p.id }}/status/Negociando" class="btn btn-outline-info">Negociando</a>
-                            <a href="/proposta/{{ p.id }}/status/Ok" class="btn btn-outline-success">Cobrado</a>
+</form>
+
+<div class="accordion" id="accordionUnidades">
+    {% for unidade, cliente in grupos %}
+    {% set dias = cliente.dias_parado_maximo %}
+    {% set critico = dias > critico_dias %}
+    {% set collapse_id = 'unidade' ~ unidade.id %}
+    <div class="accordion-item border shadow-sm mb-2 rounded overflow-hidden {{ 'border-danger' if critico }}">
+        <h2 class="accordion-header">
+            <button class="accordion-button {{ '' if critico else 'collapsed' }} fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#{{ collapse_id }}">
+                <i class="bi bi-building me-2"></i>{{ unidade.nome }}
+                {% if unidade.cidade %}<span class="text-muted small ms-2 fw-normal">{{ unidade.cidade }}</span>{% endif %}
+                <div class="ms-auto d-flex align-items-center gap-2 me-3">
+                    {% if critico %}
+                    <span class="badge bg-danger"><i class="bi bi-exclamation-triangle-fill me-1"></i>{{ dias }} dias</span>
+                    {% elif dias > 0 %}
+                    <span class="badge bg-warning text-dark"><i class="bi bi-stopwatch me-1"></i>{{ dias }} dias</span>
+                    {% endif %}
+                    <span class="badge bg-danger">{{ cliente.valor_pendente | moeda }}</span>
+                </div>
+            </button>
+        </h2>
+        <div id="{{ collapse_id }}" class="accordion-collapse collapse {{ 'show' if critico }}">
+            <div class="accordion-body">
+                <div class="row g-3">
+                    {% for p in cliente.propostas|sort(attribute='dias_parado', reverse=true) %}
+                    {% set pdias = p.dias_parado %}
+                    <div class="col-md-6">
+                        <div class="card border shadow-sm {{ 'border-danger' if p.status_cobranca == 'Pendente' and pdias > critico_dias }}">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between">
+                                    <span class="fw-bold">Proposta #{{ p.numero_proposta }}</span>
+                                    <span class="badge bg-danger">{{ p.valor | moeda }}</span>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mt-1">
+                                    <small class="text-muted">{{ p.data_criacao_proposta.strftime('%d/%m/%Y') if p.data_criacao_proposta }} — {{ p.contato }}</small>
+                                    {% if p.status_cobranca == 'Pendente' %}
+                                    <span class="badge {{ 'bg-danger' if pdias > critico_dias else ('bg-warning text-dark' if pdias >= 7 else 'bg-success') }}">
+                                        <i class="bi bi-stopwatch me-1"></i>{{ pdias }}d
+                                    </span>
+                                    {% endif %}
+                                </div>
+                                {% if p.email_solicit %}
+                                <div class="small mt-2"><span class="text-muted">Solicitante:</span> {{ p.email_solicit }}</div>
+                                {% endif %}
+                                {% if p.email_aprov %}
+                                <div class="small"><span class="text-muted">Aprovação:</span> {{ p.email_aprov }}</div>
+                                {% endif %}
+                                <div class="btn-group btn-group-sm mt-2 w-100">
+                                    <a href="/proposta/{{ p.id }}/status/Negociando" class="btn btn-outline-info">Negociando</a>
+                                    <a href="/proposta/{{ p.id }}/status/Ok" class="btn btn-outline-success">Cobrado</a>
+                                </div>
+                                {% if p.email_aprov %}
+                                <a href="mailto:{{ p.email_aprov }}?subject=Proposta {{ p.numero_proposta }} Pendente" class="btn btn-sm btn-outline-secondary w-100 mt-1">
+                                    <i class="bi bi-envelope"></i> Cobrar esta proposta
+                                </a>
+                                {% endif %}
+                            </div>
                         </div>
                     </div>
+                    {% endfor %}
                 </div>
             </div>
-            {% endfor %}
         </div>
     </div>
+    {% else %}
+    <div class="text-center text-muted py-5">Nenhuma unidade com propostas vinculadas.</div>
+    {% endfor %}
 </div>
-{% else %}
-<div class="text-center text-muted py-5">Nenhuma unidade com propostas vinculadas.</div>
-{% endfor %}
 
 {% endblock %}

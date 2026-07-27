@@ -2,48 +2,99 @@
 
 {% block content %}
 
+{% set propostas_pendentes = cliente.propostas | selectattr('status_cobranca', 'equalto', 'Pendente') | list %}
+{% set propostas_ordenadas = cliente.propostas | sort(attribute='dias_parado', reverse=true) | list %}
+{% set proposta_mais_antiga = propostas_pendentes | sort(attribute='dias_parado', reverse=true) | first %}
+
+{% set emails_pendentes = [] %}
+{% for p in cliente.propostas %}
+    {% if p.status_cobranca == 'Pendente' and p.email_aprov %}
+        {% for e in p.email_aprov.split(',') %}
+            {% if e.strip() and e.strip() not in emails_pendentes %}{% set _ = emails_pendentes.append(e.strip()) %}{% endif %}
+        {% endfor %}
+    {% endif %}
+{% endfor %}
+{% set emails_para_cobranca = emails_pendentes if emails_pendentes else ([cliente.emails_cobranca] if cliente.emails_cobranca else []) %}
+
+<!-- CABEÇALHO DE DECISÃO -->
 <div class="mb-4">
     <a href="/cobranca" class="text-decoration-none text-muted fw-bold small mb-2 d-inline-block">
         <i class="bi bi-arrow-left me-1"></i> Voltar para Lista
     </a>
-    <div class="d-flex justify-content-between align-items-start">
-        <div>
-            <h2 class="fw-bold text-primary-custom mb-1">{{ cliente.razao_social }}</h2>
-            <div class="d-flex gap-2">
-                <span class="badge bg-light text-secondary border">{{ cliente.cnpj | cnpj }}</span>
-                {% if cliente.valor_pendente > 0 %}
-                    <span class="badge bg-danger text-white">PENDÊNCIA: {{ cliente.valor_pendente | moeda }}</span>
-                {% else %}
-                    <span class="badge bg-success text-white">EM DIA</span>
-                {% endif %}
+    <div class="card border-0 shadow-sm {{ 'bg-danger bg-opacity-10' if cliente.valor_pendente > 0 }}" style="border-radius: 14px;">
+        <div class="card-body p-4">
+            <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
+                <div>
+                    <h3 class="fw-bold text-dark mb-1">{{ cliente.razao_social }}</h3>
+                    <span class="badge bg-light text-secondary border me-1">{{ cliente.cnpj | cnpj }}</span>
+                    <span class="badge bg-light text-secondary border">{{ cliente.vendedor or 'Sem vendedor' }}</span>
+                </div>
+                <div class="text-end">
+                    {% if cliente.valor_pendente > 0 %}
+                        <div class="display-6 fw-bold text-danger">{{ cliente.valor_pendente | moeda }}</div>
+                    {% else %}
+                        <div class="fs-3 fw-bold text-success"><i class="bi bi-check-circle-fill"></i> EM DIA</div>
+                    {% endif %}
+                </div>
             </div>
+            <p class="mb-0 mt-2 text-dark">
+                {% if propostas_pendentes %}
+                    <i class="bi bi-info-circle-fill text-primary me-1"></i>
+                    <strong>{{ propostas_pendentes | length }}</strong> proposta(s) pendente(s)
+                    {% if proposta_mais_antiga %}, a mais antiga há <strong>{{ proposta_mais_antiga.dias_parado }} dias</strong>{% endif %}.
+                {% else %}
+                    <i class="bi bi-check-circle text-success me-1"></i> Nenhuma proposta pendente no momento.
+                {% endif %}
+            </p>
         </div>
     </div>
 </div>
 
 <div class="row g-4">
-    <div class="col-lg-5">
+    <div class="col-lg-4">
+        <!-- CONTATO EM DESTAQUE -->
+        <div class="card shadow-sm border mb-3">
+            <div class="card-header bg-light fw-bold text-muted small border-bottom">CONTATO PARA COBRANÇA</div>
+            <div class="card-body">
+                <label class="small text-muted fw-bold">E-mails</label>
+                <div class="input-group mb-2">
+                    <textarea class="form-control" rows="2" id="emailQuickCopy" readonly>{{ emails_para_cobranca | join(', ') }}</textarea>
+                    <button type="button" class="btn btn-outline-secondary" onclick="copiarTexto('emailQuickCopy')" title="Copiar E-mails">
+                        <i class="bi bi-clipboard"></i>
+                    </button>
+                </div>
+                <div class="d-flex gap-2">
+                    {% if cliente.telefone %}
+                    <a href="{{ cliente.telefone | whatsapp }}" target="_blank" class="btn btn-outline-success flex-fill">
+                        <i class="bi bi-whatsapp"></i> WhatsApp
+                    </a>
+                    {% endif %}
+                    {% if emails_para_cobranca %}
+                    <a href="mailto:{{ emails_para_cobranca | join(',') }}?subject=Propostas Pendentes - {{ cliente.razao_social }}" class="btn btn-outline-primary-custom flex-fill">
+                        <i class="bi bi-envelope"></i> E-mail
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- DADOS DE COBRANÇA / STATUS -->
         <div class="card shadow-sm border h-100">
             <div class="card-header bg-light fw-bold text-muted small border-bottom">DADOS DE COBRANÇA</div>
             <div class="card-body">
                 <form action="/cliente/{{ cliente.id }}" method="POST">
-                    
+
                     <div class="mb-3">
                         <label class="small text-muted fw-bold">E-mails de Contato</label>
-                        <div class="input-group">
-                            <textarea name="emails_cobranca" class="form-control" rows="2" id="emailCopy">{{ cliente.emails_cobranca or '' }}</textarea>
-                            <button type="button" class="btn btn-outline-secondary" onclick="copiarTexto('emailCopy')" title="Copiar E-mails">
-                                <i class="bi bi-clipboard"></i>
-                            </button>
-                        </div>
+                        <textarea name="emails_cobranca" class="form-control" rows="2">{{ cliente.emails_cobranca or '' }}</textarea>
                         <div class="form-text small">Separe múltiplos e-mails por vírgula.</div>
                     </div>
-                    
+
                     <div class="mb-3">
                         <label class="small text-muted fw-bold">Telefone</label>
                         <input type="text" name="telefone" class="form-control" value="{{ cliente.telefone }}">
                     </div>
-                    
+
                     <div class="mb-3">
                         <label class="small text-muted fw-bold">Status</label>
                         <select name="status" class="form-select">
@@ -52,10 +103,10 @@
                             <option value="Ok" {% if cliente.status_cobranca == 'Ok' %}selected{% endif %}>Resolvido / Ok</option>
                         </select>
                     </div>
-                    
+
                     <div class="mb-3">
                         <label class="small text-muted fw-bold mb-1">Histórico / Ações Rápidas</label>
-                        
+
                         <div class="d-flex gap-2 mb-2 flex-wrap">
                             <button type="button" class="btn btn-sm btn-outline-secondary" onclick="registrarAcao('📧 Enviei E-mail')">
                                 <i class="bi bi-envelope"></i> E-mail
@@ -80,27 +131,45 @@
         </div>
     </div>
 
-    <div class="col-lg-7">
-        <div class="card shadow-sm border mb-4">
-            <div class="card-header bg-light fw-bold text-muted small border-bottom">
-                PROPOSTAS ({{ cliente.propostas | length }})
+    <div class="col-lg-8">
+        <!-- PROPOSTAS -->
+        <div class="card shadow-sm border mb-3">
+            <div class="card-header bg-light fw-bold text-muted small border-bottom d-flex justify-content-between align-items-center">
+                <span>PROPOSTAS ({{ cliente.propostas | length }}) — ordenadas por tempo parado</span>
+                {% if propostas_pendentes | length > 1 %}
+                <a href="/cliente/{{ cliente.id }}/propostas/status/Negociando" class="btn btn-sm btn-outline-info">
+                    <i class="bi bi-people-fill me-1"></i> Marcar todas como Negociando
+                </a>
+                {% endif %}
             </div>
             <div class="card-body">
                 <div class="row g-3">
-                    {% for p in cliente.propostas|sort(attribute='data_criacao_proposta', reverse=true) %}
+                    {% for p in propostas_ordenadas %}
+                    {% set dias = p.dias_parado %}
+                    {% set cor = 'success' if dias < 7 else ('warning' if dias <= 15 else 'danger') %}
                     <div class="col-md-6">
-                        <div class="card border shadow-sm {{ 'border-danger' if p.status_cobranca == 'Pendente' }}">
+                        <div class="card border shadow-sm {{ 'border-danger' if p.status_cobranca == 'Pendente' and dias > 15 }}">
                             <div class="card-body">
                                 <div class="d-flex justify-content-between">
                                     <span class="fw-bold">Proposta #{{ p.numero_proposta }}</span>
                                     <span class="badge bg-danger">{{ p.valor | moeda }}</span>
                                 </div>
-                                <small class="text-muted d-block">{{ p.data_criacao_proposta.strftime('%d/%m/%Y') if p.data_criacao_proposta }} — {{ p.contato }}</small>
+                                <div class="d-flex justify-content-between align-items-center mt-1">
+                                    <small class="text-muted">{{ p.data_criacao_proposta.strftime('%d/%m/%Y') if p.data_criacao_proposta }} — {{ p.contato }}</small>
+                                    {% if p.status_cobranca == 'Pendente' %}
+                                    <span class="badge bg-{{ cor }} {{ 'text-dark' if cor == 'warning' }}"><i class="bi bi-stopwatch me-1"></i>{{ dias }}d</span>
+                                    {% endif %}
+                                </div>
                                 <span class="badge bg-secondary mt-2">{{ p.status_cobranca }}</span>
                                 <div class="btn-group btn-group-sm mt-2 w-100">
                                     <a href="/proposta/{{ p.id }}/status/Negociando" class="btn btn-outline-info">Negociando</a>
                                     <a href="/proposta/{{ p.id }}/status/Ok" class="btn btn-outline-success">Cobrado</a>
                                 </div>
+                                {% if p.email_aprov %}
+                                <a href="mailto:{{ p.email_aprov }}?subject=Proposta {{ p.numero_proposta }} Pendente - {{ cliente.razao_social }}" class="btn btn-sm btn-outline-secondary w-100 mt-1">
+                                    <i class="bi bi-envelope"></i> Cobrar esta proposta
+                                </a>
+                                {% endif %}
                             </div>
                         </div>
                     </div>
@@ -111,92 +180,105 @@
             </div>
         </div>
 
-        <div class="card shadow-sm border h-100">
-            <div class="card-header bg-primary-custom text-white fw-bold">
-                <i class="bi bi-envelope-paper me-2"></i> Gerador de Mensagem
-            </div>
-            <div class="card-body bg-light overflow-auto" style="max-height: 800px;">
+        <!-- GERADOR DE MENSAGEM (SECUNDÁRIO / COLAPSÁVEL) -->
+        {% set tem_historico = cliente.observacoes_internas and cliente.observacoes_internas.strip() %}
+        {% set template_sugerido = 'msg3' if (tem_historico and 'Cobrança' in (cliente.observacoes_internas or '')) else ('msg2' if tem_historico else 'msg1') %}
+        <div class="accordion" id="accordionMensagem">
+            <div class="accordion-item border shadow-sm rounded overflow-hidden">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed bg-primary-custom text-white fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#colapsoMensagem">
+                        <i class="bi bi-envelope-paper me-2"></i> Gerador de Mensagem
+                        <span class="badge bg-white text-primary-custom ms-2">Sugestão: {{ {'msg1': '1. Revisão/Inicial', 'msg2': '2. Lembrete', 'msg3': '3. Reiteração'}[template_sugerido] }}</span>
+                    </button>
+                </h2>
+                <div id="colapsoMensagem" class="accordion-collapse collapse">
+                    <div class="accordion-body bg-light overflow-auto" style="max-height: 800px;">
 
-                <p class="alert alert-info py-2 small border-0 mb-4">
-                    <i class="bi bi-pencil-fill me-2"></i> <strong>Editável:</strong> Clique no ícone de lápis ou direto no texto para alterar antes de copiar.
-                </p>
+                        <p class="alert alert-info py-2 small border-0 mb-4">
+                            <i class="bi bi-pencil-fill me-2"></i> <strong>Editável:</strong> Clique no ícone de lápis ou direto no texto para alterar antes de copiar.
+                        </p>
 
-                <div class="card border mb-3">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between mb-2 align-items-center">
-                            <h6 class="fw-bold text-primary mb-0">1. Revisão / Inicial</h6>
-                            <div class="d-flex gap-1">
-                                <button class="btn btn-sm btn-outline-secondary" onclick="focarEdicao('msg1')" title="Editar Texto"><i class="bi bi-pencil"></i></button>
-                                <button class="btn btn-sm btn-outline-primary-custom fw-bold" onclick="copiarModelo('msg1')"><i class="bi bi-clipboard me-1"></i> Copiar</button>
+                        <div class="card border mb-3 {{ 'border-primary' if template_sugerido == 'msg1' }}">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between mb-2 align-items-center">
+                                    <h6 class="fw-bold text-primary mb-0">1. Revisão / Inicial {% if template_sugerido == 'msg1' %}<span class="badge bg-primary">Sugerido</span>{% endif %}</h6>
+                                    <div class="d-flex gap-1">
+                                        <button class="btn btn-sm btn-outline-secondary" onclick="focarEdicao('msg1')" title="Editar Texto"><i class="bi bi-pencil"></i></button>
+                                        <button class="btn btn-sm btn-outline-primary-custom fw-bold" onclick="copiarModelo('msg1')"><i class="bi bi-clipboard me-1"></i> Copiar</button>
+                                    </div>
+                                </div>
+                                <div class="bg-white p-3 rounded border text-muted small fst-italic editable-area" id="msg1" contenteditable="true">
+                                    Boa noite,<br><br>
+                                    Espero que esteja bem!<br><br>
+                                    Estou fazendo uma revisão nas propostas comerciais em aberto da <strong>{{ cliente.razao_social }}</strong> e notei que ainda não recebemos um retorno referente às propostas detalhadas abaixo:<br><br>
+                                    <span style="color:red; font-weight:bold;">[ ⬇️ COLAR PRINT DAS PROPOSTAS AQUI ⬇️ ]</span><br><br>
+                                    Poderia, por gentileza, me informar se houve alguma definição?<br>
+                                    Caso haja necessidade de esclarecimentos, estou à disposição.<br><br>
+                                    Desde já agradeço pela atenção e aguardo seu retorno.
+                                </div>
                             </div>
                         </div>
-                        <div class="bg-white p-3 rounded border text-muted small fst-italic editable-area" id="msg1" contenteditable="true">
-                            Boa noite,<br><br>
-                            Espero que esteja bem!<br><br>
-                            Estou fazendo uma revisão nas propostas comerciais em aberto da <strong>{{ cliente.razao_social }}</strong> e notei que ainda não recebemos um retorno referente às propostas detalhadas abaixo:<br><br>
-                            <span style="color:red; font-weight:bold;">[ ⬇️ COLAR PRINT DAS PROPOSTAS AQUI ⬇️ ]</span><br><br>
-                            Poderia, por gentileza, me informar se houve alguma definição?<br>
-                            Caso haja necessidade de esclarecimentos, estou à disposição.<br><br>
-                            Desde já agradeço pela atenção e aguardo seu retorno.
-                        </div>
-                    </div>
-                </div>
 
-                <div class="card border mb-3">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between mb-2 align-items-center">
-                            <h6 class="fw-bold text-dark mb-0">2. Lembrete (1ª Cobrança)</h6>
-                            <div class="d-flex gap-1">
-                                <button class="btn btn-sm btn-outline-secondary" onclick="focarEdicao('msg2')" title="Editar Texto"><i class="bi bi-pencil"></i></button>
-                                <button class="btn btn-sm btn-outline-dark fw-bold" onclick="copiarModelo('msg2')"><i class="bi bi-clipboard me-1"></i> Copiar</button>
+                        <div class="card border mb-3 {{ 'border-dark' if template_sugerido == 'msg2' }}">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between mb-2 align-items-center">
+                                    <h6 class="fw-bold text-dark mb-0">2. Lembrete (1ª Cobrança) {% if template_sugerido == 'msg2' %}<span class="badge bg-dark">Sugerido</span>{% endif %}</h6>
+                                    <div class="d-flex gap-1">
+                                        <button class="btn btn-sm btn-outline-secondary" onclick="focarEdicao('msg2')" title="Editar Texto"><i class="bi bi-pencil"></i></button>
+                                        <button class="btn btn-sm btn-outline-dark fw-bold" onclick="copiarModelo('msg2')"><i class="bi bi-clipboard me-1"></i> Copiar</button>
+                                    </div>
+                                </div>
+                                <div class="bg-white p-3 rounded border text-muted small fst-italic editable-area" id="msg2" contenteditable="true">
+                                    <strong>Assunto: Lembrete: Propostas Pendentes de Aprovação</strong><br><br>
+                                    Boa tarde, Prezado(a),<br><br>
+                                    Espero que você esteja bem!<br><br>
+                                    Gostaria de fazer um lembrete sobre as propostas que estão pendentes de sua aprovação, conforme segue:<br><br>
+                                    <span style="color:red; font-weight:bold;">[ ⬇️ COLAR PRINT DAS PROPOSTAS AQUI ⬇️ ]</span><br><br>
+                                    Agradecemos sua atenção, pois sua aprovação é fundamental para darmos continuidade aos nossos projetos.<br>
+                                    Se precisar de mais informações ou tiver alguma dúvida, estou à disposição para ajudar.<br><br>
+                                    Agradeço desde já pela sua colaboração e fico no aguardo de sua resposta.
+                                </div>
                             </div>
                         </div>
-                        <div class="bg-white p-3 rounded border text-muted small fst-italic editable-area" id="msg2" contenteditable="true">
-                            <strong>Assunto: Lembrete: Propostas Pendentes de Aprovação</strong><br><br>
-                            Boa tarde, Prezado(a),<br><br>
-                            Espero que você esteja bem!<br><br>
-                            Gostaria de fazer um lembrete sobre as propostas que estão pendentes de sua aprovação, conforme segue:<br><br>
-                            <span style="color:red; font-weight:bold;">[ ⬇️ COLAR PRINT DAS PROPOSTAS AQUI ⬇️ ]</span><br><br>
-                            Agradecemos sua atenção, pois sua aprovação é fundamental para darmos continuidade aos nossos projetos.<br>
-                            Se precisar de mais informações ou tiver alguma dúvida, estou à disposição para ajudar.<br><br>
-                            Agradeço desde já pela sua colaboração e fico no aguardo de sua resposta.
-                        </div>
-                    </div>
-                </div>
 
-                <div class="card border mb-3">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between mb-2 align-items-center">
-                            <h6 class="fw-bold text-danger mb-0">3. Reiteração (2ª Cobrança)</h6>
-                            <div class="d-flex gap-1">
-                                <button class="btn btn-sm btn-outline-secondary" onclick="focarEdicao('msg3')" title="Editar Texto"><i class="bi bi-pencil"></i></button>
-                                <button class="btn btn-sm btn-outline-danger fw-bold" onclick="copiarModelo('msg3')"><i class="bi bi-clipboard me-1"></i> Copiar</button>
+                        <div class="card border mb-3 {{ 'border-danger' if template_sugerido == 'msg3' }}">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between mb-2 align-items-center">
+                                    <h6 class="fw-bold text-danger mb-0">3. Reiteração (2ª Cobrança) {% if template_sugerido == 'msg3' %}<span class="badge bg-danger">Sugerido</span>{% endif %}</h6>
+                                    <div class="d-flex gap-1">
+                                        <button class="btn btn-sm btn-outline-secondary" onclick="focarEdicao('msg3')" title="Editar Texto"><i class="bi bi-pencil"></i></button>
+                                        <button class="btn btn-sm btn-outline-danger fw-bold" onclick="copiarModelo('msg3')"><i class="bi bi-clipboard me-1"></i> Copiar</button>
+                                    </div>
+                                </div>
+                                <div class="bg-white p-3 rounded border text-muted small fst-italic editable-area" id="msg3" contenteditable="true">
+                                    Boa tarde.<br><br>
+                                    Reiteramos nosso contato anterior a respeito das propostas da <strong>{{ cliente.razao_social }}</strong> que ainda constam como pendentes de aprovação:<br><br>
+                                    <span style="color:red; font-weight:bold;">[ ⬇️ COLAR PRINT DAS PROPOSTAS AQUI ⬇️ ]</span><br><br>
+                                    Reforçamos a importância de sua análise para que possamos dar continuidade às etapas seguintes com a excelência que prezamos em nosso atendimento.<br><br>
+                                    Permanecemos à disposição para qualquer esclarecimento ou suporte adicional que se faça necessário.<br>
+                                    Agradecemos desde já pela atenção e confiança depositadas em nosso trabalho.
+                                </div>
                             </div>
                         </div>
-                        <div class="bg-white p-3 rounded border text-muted small fst-italic editable-area" id="msg3" contenteditable="true">
-                            Boa tarde.<br><br>
-                            Reiteramos nosso contato anterior a respeito das propostas da <strong>{{ cliente.razao_social }}</strong> que ainda constam como pendentes de aprovação:<br><br>
-                            <span style="color:red; font-weight:bold;">[ ⬇️ COLAR PRINT DAS PROPOSTAS AQUI ⬇️ ]</span><br><br>
-                            Reforçamos a importância de sua análise para que possamos dar continuidade às etapas seguintes com a excelência que prezamos em nosso atendimento.<br><br>
-                            Permanecemos à disposição para qualquer esclarecimento ou suporte adicional que se faça necessário.<br>
-                            Agradecemos desde já pela atenção e confiança depositadas em nosso trabalho.
+
+                        <div class="d-grid mt-4">
+                            <a href="mailto:{{ emails_para_cobranca | join(',') }}?subject=Propostas Pendentes - {{ cliente.razao_social }}" class="btn btn-orange-custom text-white fw-bold py-3 shadow-sm">
+                                <i class="bi bi-envelope-fill me-2"></i> Abrir E-mail (Sem texto)
+                            </a>
+                            <small class="text-muted text-center mt-1">
+                                {% if emails_pendentes %}Destinatários das propostas pendentes: {{ emails_pendentes | join(', ') }}
+                                {% else %}Nenhum e-mail de aprovação nas propostas pendentes — usando e-mail de contato manual.{% endif %}
+                            </small>
                         </div>
+
                     </div>
                 </div>
-
-                <div class="d-grid mt-4">
-                    <a href="mailto:{{ cliente.emails_cobranca }}?subject=Propostas Pendentes - {{ cliente.razao_social }}" class="btn btn-orange-custom text-white fw-bold py-3 shadow-sm">
-                        <i class="bi bi-envelope-fill me-2"></i> Abrir E-mail (Sem texto)
-                    </a>
-                </div>
-
             </div>
         </div>
     </div>
 </div>
 
 <style>
-    /* Estilo para indicar que a área é editável */
     .editable-area:focus {
         outline: 2px solid var(--accent);
         background-color: #fff;
@@ -214,52 +296,45 @@
 </style>
 
 <script>
-    // Copiar e-mails
     function copiarTexto(idElemento) {
         var copyText = document.getElementById(idElemento);
         copyText.select();
-        copyText.setSelectionRange(0, 99999); 
+        copyText.setSelectionRange(0, 99999);
         navigator.clipboard.writeText(copyText.value);
         alert("E-mails copiados!");
     }
 
-    // Focar na div editável
     function focarEdicao(idDiv) {
         var div = document.getElementById(idDiv);
         div.focus();
     }
 
-    // Copiar o texto do modelo (respeitando as edições feitas)
     function copiarModelo(idDiv) {
         var texto = document.getElementById(idDiv).innerText;
         navigator.clipboard.writeText(texto);
         alert("Texto copiado! Agora cole no e-mail e insira o Print.");
     }
 
-    // Registrar Ação Rápida no Histórico
     function registrarAcao(acao) {
         const campo = document.getElementById('campoObservacao');
         const agora = new Date();
-        
-        // Formata data: DD/MM HH:mm
+
         const dia = String(agora.getDate()).padStart(2, '0');
         const mes = String(agora.getMonth() + 1).padStart(2, '0');
         const hora = String(agora.getHours()).padStart(2, '0');
         const min = String(agora.getMinutes()).padStart(2, '0');
-        
+
         const dataFormatada = `[${dia}/${mes} ${hora}:${min}]`;
-        
-        // Adiciona nova linha no final
+
         const textoAtual = campo.value;
         const novoRegistro = `${dataFormatada} - ${acao}`;
-        
+
         if (textoAtual.length > 0) {
             campo.value = textoAtual + "\n" + novoRegistro;
         } else {
             campo.value = novoRegistro;
         }
-        
-        // Pisca a borda em verde
+
         campo.style.borderColor = "var(--accent)";
         setTimeout(() => {
             campo.style.borderColor = "#ced4da";
