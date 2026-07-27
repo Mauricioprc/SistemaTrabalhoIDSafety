@@ -16,6 +16,16 @@
 {% endfor %}
 {% set emails_para_cobranca = emails_pendentes if emails_pendentes else ([cliente.emails_cobranca] if cliente.emails_cobranca else []) %}
 
+{% set propostas_para_lista = propostas_pendentes|sort(attribute='dias_parado', reverse=true) %}
+{% set proposta_lista_html %}
+{%- if propostas_para_lista -%}
+{%- for p in propostas_para_lista %}• Proposta #{{ p.numero_proposta }}<br>
+{% endfor -%}
+{%- else -%}
+[ Nenhuma proposta pendente localizada automaticamente — revise manualmente. ]
+{%- endif -%}
+{% endset %}
+
 <!-- CABEÇALHO DE DECISÃO -->
 <div class="mb-4">
     <a href="/cobranca" class="text-decoration-none text-muted fw-bold small mb-2 d-inline-block">
@@ -155,7 +165,7 @@
                                     <span class="badge bg-danger">{{ p.valor | moeda }}</span>
                                 </div>
                                 <div class="d-flex justify-content-between align-items-center mt-1">
-                                    <small class="text-muted">{{ p.data_criacao_proposta.strftime('%d/%m/%Y') if p.data_criacao_proposta }} — {{ p.contato }}</small>
+                                    <small class="text-muted">{{ p.data_criacao_proposta.strftime('%d/%m/%Y') if p.data_criacao_proposta }} — {{ p.email_solicit or 'sem e-mail' }}</small>
                                     {% if p.status_cobranca == 'Pendente' %}
                                     <span class="badge bg-{{ cor }} {{ 'text-dark' if cor == 'warning' }}"><i class="bi bi-stopwatch me-1"></i>{{ dias }}d</span>
                                     {% endif %}
@@ -211,7 +221,7 @@
                                     Boa noite,<br><br>
                                     Espero que esteja bem!<br><br>
                                     Estou fazendo uma revisão nas propostas comerciais em aberto da <strong>{{ cliente.razao_social }}</strong> e notei que ainda não recebemos um retorno referente às propostas detalhadas abaixo:<br><br>
-                                    <span style="color:red; font-weight:bold;">[ ⬇️ COLAR PRINT DAS PROPOSTAS AQUI ⬇️ ]</span><br><br>
+                                    {{ proposta_lista_html }}<br>
                                     Poderia, por gentileza, me informar se houve alguma definição?<br>
                                     Caso haja necessidade de esclarecimentos, estou à disposição.<br><br>
                                     Desde já agradeço pela atenção e aguardo seu retorno.
@@ -233,7 +243,7 @@
                                     Boa tarde, Prezado(a),<br><br>
                                     Espero que você esteja bem!<br><br>
                                     Gostaria de fazer um lembrete sobre as propostas que estão pendentes de sua aprovação, conforme segue:<br><br>
-                                    <span style="color:red; font-weight:bold;">[ ⬇️ COLAR PRINT DAS PROPOSTAS AQUI ⬇️ ]</span><br><br>
+                                    {{ proposta_lista_html }}<br>
                                     Agradecemos sua atenção, pois sua aprovação é fundamental para darmos continuidade aos nossos projetos.<br>
                                     Se precisar de mais informações ou tiver alguma dúvida, estou à disposição para ajudar.<br><br>
                                     Agradeço desde já pela sua colaboração e fico no aguardo de sua resposta.
@@ -252,8 +262,8 @@
                                 </div>
                                 <div class="bg-white p-3 rounded border text-muted small fst-italic editable-area" id="msg3" contenteditable="true">
                                     Boa tarde.<br><br>
-                                    Reiteramos nosso contato anterior a respeito das propostas da <strong>{{ cliente.razao_social }}</strong> que ainda constam como pendentes de aprovação:<br><br>
-                                    <span style="color:red; font-weight:bold;">[ ⬇️ COLAR PRINT DAS PROPOSTAS AQUI ⬇️ ]</span><br><br>
+                                    Reiteramos nosso contato anterior a respeito das propostas da <strong>{{ cliente.razao_social }}</strong> que ainda constam como pendentes de aprovação{% if proposta_mais_antiga %}, a mais antiga já parada há <strong>{{ proposta_mais_antiga.dias_parado }} dias</strong>{% endif %}:<br><br>
+                                    {{ proposta_lista_html }}<br>
                                     Reforçamos a importância de sua análise para que possamos dar continuidade às etapas seguintes com a excelência que prezamos em nosso atendimento.<br><br>
                                     Permanecemos à disposição para qualquer esclarecimento ou suporte adicional que se faça necessário.<br>
                                     Agradecemos desde já pela atenção e confiança depositadas em nosso trabalho.

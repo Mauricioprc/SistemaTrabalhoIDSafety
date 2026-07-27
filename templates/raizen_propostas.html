@@ -48,7 +48,7 @@
                                     <span class="badge bg-danger">{{ p.valor | moeda }}</span>
                                 </div>
                                 <div class="d-flex justify-content-between align-items-center mt-1">
-                                    <small class="text-muted">{{ p.data_criacao_proposta.strftime('%d/%m/%Y') if p.data_criacao_proposta }} — {{ p.contato }}</small>
+                                    <small class="text-muted">{{ p.data_criacao_proposta.strftime('%d/%m/%Y') if p.data_criacao_proposta }} — {{ p.email_solicit or 'sem e-mail' }}</small>
                                     {% if p.status_cobranca == 'Pendente' %}
                                     <span class="badge {{ 'bg-danger' if pdias > critico_dias else ('bg-warning text-dark' if pdias >= 7 else 'bg-success') }}">
                                         <i class="bi bi-stopwatch me-1"></i>{{ pdias }}d

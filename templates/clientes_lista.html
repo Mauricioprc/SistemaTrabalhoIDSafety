@@ -80,7 +80,6 @@
             <div style="flex: 1 1 260px;">
                 <div class="fw-bold text-dark">{{ cliente.razao_social }}</div>
                 <small class="text-muted">
-                    {{ cliente.vendedor or 'Sem vendedor' }} &middot;
                     <span class="badge bg-light text-secondary border">{{ cliente.cnpj | cnpj }}</span> &middot;
                     {{ cliente.propostas | length }} proposta(s)
                 </small>
