@@ -1,10 +1,10 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, send_file
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import or_
+from sqlalchemy.orm import joinedload
 import os
 import re
 import pandas as pd
-import urllib.parse
 from datetime import datetime
 
 app = Flask(__name__)
@@ -96,13 +96,24 @@ class Cliente(db.Model):
     telefone = db.Column(db.String(50))
     vendedor = db.Column(db.String(100))
     data_atualizacao = db.Column(db.DateTime, default=datetime.utcnow)
-    status_cobranca = db.Column(db.String(50), default='Pendente')
-    observacoes_internas = db.Column(db.Text)
     propostas = db.relationship('Proposta', backref='cliente', lazy=True, cascade="all, delete-orphan")
 
     @property
+    def status_cobranca(self):
+        """Calculado a partir das propostas: Pendente > Negociando > Ok."""
+        if any(p.status_cobranca == 'Pendente' for p in self.propostas):
+            return 'Pendente'
+        if any(p.status_cobranca == 'Negociando' for p in self.propostas):
+            return 'Negociando'
+        return 'Ok'
+
+    @property
     def valor_pendente(self):
-        return sum(p.valor for p in self.propostas if p.status_cobranca != 'Ok')
+        return sum(p.valor for p in self.propostas if p.status_cobranca == 'Pendente')
+
+    @property
+    def valor_negociando(self):
+        return sum(p.valor for p in self.propostas if p.status_cobranca == 'Negociando')
 
     @property
     def dias_parado_maximo(self):
@@ -126,7 +137,6 @@ class Proposta(db.Model):
     email_aprov = db.Column(db.Text)
     email_nf = db.Column(db.Text)
     vendedor = db.Column(db.String(100))
-    observacoes = db.Column(db.Text)
     cliente_id = db.Column(db.Integer, db.ForeignKey('cliente.id'), nullable=False)
 
     @property
@@ -148,7 +158,7 @@ def dashboard():
     
     ultimos_pedidos = Pedido.query.order_by(Pedido.data_upload.desc()).limit(5).all()
 
-    clientes_ativos = [c for c in Cliente.query.filter(Cliente.status_cobranca != 'Ok').all() if c.valor_pendente > 0]
+    clientes_ativos = [c for c in Cliente.query.options(joinedload(Cliente.propostas)).all() if c.valor_pendente > 0]
     clientes_ativos.sort(key=lambda c: c.valor_pendente, reverse=True)
 
     total_divida = sum(c.valor_pendente for c in clientes_ativos)
@@ -393,7 +403,7 @@ def cobranca():
                     cliente = Cliente.query.filter_by(cnpj=cnpj_limpo).first()
                     if not cliente:
                         cliente = Cliente(razao_social=razao, cnpj=cnpj_limpo, emails_cobranca=email_aprov,
-                                           telefone=celular or telefone, vendedor=vendedor, status_cobranca='Pendente')
+                                           telefone=celular or telefone, vendedor=vendedor)
                         db.session.add(cliente)
                         db.session.flush()
                         clientes_novos += 1
@@ -425,11 +435,6 @@ def cobranca():
 
                 db.session.commit()
 
-                for cliente in Cliente.query.all():
-                    cliente.status_cobranca = 'Ok' if cliente.valor_pendente <= 0 else (
-                        'Pendente' if cliente.status_cobranca == 'Ok' else cliente.status_cobranca)
-                db.session.commit()
-
                 flash(f'Processado! {clientes_novos} clientes novos, {propostas_novas} propostas novas, '
                       f'{propostas_atualizadas} atualizadas, {propostas_removidas} removidas.', 'success')
             except Exception as e:
@@ -440,10 +445,11 @@ def cobranca():
     filtro = request.args.get('filtro', 'todos')
     ordenar_valor = request.args.get('ordenar') == 'valor'
 
-    todos_clientes = Cliente.query.all()
-    total_pendente = sum(c.valor_pendente for c in todos_clientes if c.status_cobranca != 'Ok')
+    todos_clientes = Cliente.query.options(joinedload(Cliente.propostas)).all()
+    total_pendente = sum(c.valor_pendente for c in todos_clientes)
+    total_negociando = sum(c.valor_negociando for c in todos_clientes)
     qtd_pendentes = sum(1 for c in todos_clientes if c.status_cobranca == 'Pendente')
-    qtd_negociando = sum(1 for c in todos_clientes if c.status_cobranca == 'Em Negociação')
+    qtd_negociando = sum(1 for c in todos_clientes if c.status_cobranca == 'Negociando')
     qtd_criticos = sum(1 for c in todos_clientes if c.dias_parado_maximo > CRITICO_DIAS)
 
     clientes = todos_clientes
@@ -454,21 +460,22 @@ def cobranca():
     if filtro == 'pendentes':
         clientes = [c for c in clientes if c.status_cobranca == 'Pendente']
     elif filtro == 'negociando':
-        clientes = [c for c in clientes if c.status_cobranca == 'Em Negociação']
+        clientes = [c for c in clientes if c.status_cobranca == 'Negociando']
     elif filtro == 'criticos':
         clientes = [c for c in clientes if c.dias_parado_maximo > CRITICO_DIAS]
     elif filtro == 'ok':
         clientes = [c for c in clientes if c.status_cobranca == 'Ok']
 
-    prioridade = {'Pendente': 0, 'Em Negociação': 1, 'Ok': 2}
+    prioridade = {'Pendente': 0, 'Negociando': 1, 'Ok': 2}
     if ordenar_valor:
         clientes.sort(key=lambda c: (prioridade.get(c.status_cobranca, 1), -c.valor_pendente))
     else:
         clientes.sort(key=lambda c: (prioridade.get(c.status_cobranca, 1), -c.dias_parado_maximo, -c.valor_pendente))
 
     return render_template('clientes_lista.html', clientes=clientes, q=q, filtro=filtro, ordenar_valor=ordenar_valor,
-                           total_pendente=total_pendente, qtd_pendentes=qtd_pendentes,
-                           qtd_negociando=qtd_negociando, qtd_criticos=qtd_criticos, critico_dias=CRITICO_DIAS)
+                           total_pendente=total_pendente, total_negociando=total_negociando,
+                           qtd_pendentes=qtd_pendentes, qtd_negociando=qtd_negociando,
+                           qtd_criticos=qtd_criticos, critico_dias=CRITICO_DIAS)
 
 @app.route('/proposta/<int:id>/status/<status>')
 def marcar_status_proposta(id, status):
@@ -504,22 +511,17 @@ def raizen_propostas():
         cnpj_limpo = limpar_input(u.cnpj)
         if not cnpj_limpo:
             continue
-        cliente = Cliente.query.filter_by(cnpj=cnpj_limpo).first()
+        cliente = Cliente.query.options(joinedload(Cliente.propostas)).filter_by(cnpj=cnpj_limpo).first()
         if cliente and cliente.propostas:
             grupos.append((u, cliente))
 
     grupos.sort(key=lambda g: (-g[1].dias_parado_maximo, -g[1].valor_pendente))
     return render_template('raizen_propostas.html', grupos=grupos, q=q, critico_dias=CRITICO_DIAS)
 
-@app.route('/cliente/<int:id>', methods=['GET', 'POST'])
+@app.route('/cliente/<int:id>')
 def detalhe_cliente(id):
-    c = Cliente.query.get_or_404(id)
-    if request.method == 'POST':
-        c.emails_cobranca = request.form.get('emails_cobranca'); c.telefone = request.form.get('telefone')
-        c.observacoes_internas = request.form.get('observacoes'); c.status_cobranca = request.form.get('status')
-        db.session.commit(); flash('Salvo.', 'success')
-        return redirect(url_for('detalhe_cliente', id=id))
-    return render_template('detalhe_cliente.html', cliente=c)
+    c = Cliente.query.options(joinedload(Cliente.propostas)).get_or_404(id)
+    return render_template('detalhe_cliente.html', cliente=c, critico_dias=CRITICO_DIAS)
 
 with app.app_context(): db.create_all()
 if __name__ == '__main__': app.run(debug=True)

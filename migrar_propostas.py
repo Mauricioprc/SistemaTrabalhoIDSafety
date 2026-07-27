@@ -14,10 +14,10 @@ with app.app_context():
     clientes = Cliente.query.all()
     migrados = 0
     for cliente in clientes:
-        valor_antigo = db.session.execute(
-            db.text("SELECT valor_pendente FROM cliente WHERE id = :id"),
+        valor_antigo, status_antigo = db.session.execute(
+            db.text("SELECT valor_pendente, status_cobranca FROM cliente WHERE id = :id"),
             {"id": cliente.id}
-        ).scalar()
+        ).first()
 
         if not valor_antigo or valor_antigo <= 0:
             continue
@@ -31,7 +31,7 @@ with app.app_context():
         db.session.add(Proposta(
             numero_proposta=numero,
             valor=float(valor_antigo),
-            status_cobranca=cliente.status_cobranca or 'Pendente',
+            status_cobranca='Negociando' if status_antigo == 'Em Negociação' else (status_antigo or 'Pendente'),
             vendedor=cliente.vendedor,
             email_aprov=cliente.emails_cobranca,
             telefone=cliente.telefone,

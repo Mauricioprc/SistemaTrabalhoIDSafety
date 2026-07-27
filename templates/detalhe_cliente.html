@@ -87,58 +87,6 @@
                 </div>
             </div>
         </div>
-
-        <!-- DADOS DE COBRANÇA / STATUS -->
-        <div class="card shadow-sm border h-100">
-            <div class="card-header bg-light fw-bold text-muted small border-bottom">DADOS DE COBRANÇA</div>
-            <div class="card-body">
-                <form action="/cliente/{{ cliente.id }}" method="POST">
-
-                    <div class="mb-3">
-                        <label class="small text-muted fw-bold">E-mails de Contato</label>
-                        <textarea name="emails_cobranca" class="form-control" rows="2">{{ cliente.emails_cobranca or '' }}</textarea>
-                        <div class="form-text small">Separe múltiplos e-mails por vírgula.</div>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="small text-muted fw-bold">Telefone</label>
-                        <input type="text" name="telefone" class="form-control" value="{{ cliente.telefone }}">
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="small text-muted fw-bold">Status</label>
-                        <select name="status" class="form-select">
-                            <option value="Pendente" {% if cliente.status_cobranca == 'Pendente' %}selected{% endif %}>Pendente</option>
-                            <option value="Em Negociação" {% if cliente.status_cobranca == 'Em Negociação' %}selected{% endif %}>Em Negociação</option>
-                            <option value="Ok" {% if cliente.status_cobranca == 'Ok' %}selected{% endif %}>Resolvido / Ok</option>
-                        </select>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="small text-muted fw-bold mb-1">Histórico / Ações Rápidas</label>
-
-                        <div class="d-flex gap-2 mb-2 flex-wrap">
-                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="registrarAcao('📧 Enviei E-mail')">
-                                <i class="bi bi-envelope"></i> E-mail
-                            </button>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="registrarAcao('💬 Enviei WhatsApp')">
-                                <i class="bi bi-whatsapp"></i> WhatsApp
-                            </button>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="registrarAcao('📞 Fiz Ligação')">
-                                <i class="bi bi-telephone"></i> Ligação
-                            </button>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="registrarAcao('❌ Sem Sucesso')">
-                                <i class="bi bi-x-circle"></i> Sem Retorno
-                            </button>
-                        </div>
-
-                        <textarea name="observacoes" id="campoObservacao" class="form-control bg-light" rows="6" placeholder="O histórico aparecerá aqui...">{{ cliente.observacoes_internas or '' }}</textarea>
-                    </div>
-
-                    <button type="submit" class="btn btn-primary-custom w-100">Salvar Alterações</button>
-                </form>
-            </div>
-        </div>
     </div>
 
     <div class="col-lg-8">
@@ -191,8 +139,8 @@
         </div>
 
         <!-- GERADOR DE MENSAGEM (SECUNDÁRIO / COLAPSÁVEL) -->
-        {% set tem_historico = cliente.observacoes_internas and cliente.observacoes_internas.strip() %}
-        {% set template_sugerido = 'msg3' if (tem_historico and 'Cobrança' in (cliente.observacoes_internas or '')) else ('msg2' if tem_historico else 'msg1') %}
+        {% set dias_mais_antiga = proposta_mais_antiga.dias_parado if proposta_mais_antiga else 0 %}
+        {% set template_sugerido = 'msg3' if dias_mais_antiga > critico_dias else ('msg2' if dias_mais_antiga >= 7 else 'msg1') %}
         <div class="accordion" id="accordionMensagem">
             <div class="accordion-item border shadow-sm rounded overflow-hidden">
                 <h2 class="accordion-header">
@@ -323,32 +271,6 @@
         var texto = document.getElementById(idDiv).innerText;
         navigator.clipboard.writeText(texto);
         alert("Texto copiado! Agora cole no e-mail e insira o Print.");
-    }
-
-    function registrarAcao(acao) {
-        const campo = document.getElementById('campoObservacao');
-        const agora = new Date();
-
-        const dia = String(agora.getDate()).padStart(2, '0');
-        const mes = String(agora.getMonth() + 1).padStart(2, '0');
-        const hora = String(agora.getHours()).padStart(2, '0');
-        const min = String(agora.getMinutes()).padStart(2, '0');
-
-        const dataFormatada = `[${dia}/${mes} ${hora}:${min}]`;
-
-        const textoAtual = campo.value;
-        const novoRegistro = `${dataFormatada} - ${acao}`;
-
-        if (textoAtual.length > 0) {
-            campo.value = textoAtual + "\n" + novoRegistro;
-        } else {
-            campo.value = novoRegistro;
-        }
-
-        campo.style.borderColor = "var(--accent)";
-        setTimeout(() => {
-            campo.style.borderColor = "#ced4da";
-        }, 500);
     }
 </script>
 
