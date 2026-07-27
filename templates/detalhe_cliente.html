@@ -81,12 +81,42 @@
     </div>
 
     <div class="col-lg-7">
+        <div class="card shadow-sm border mb-4">
+            <div class="card-header bg-light fw-bold text-muted small border-bottom">
+                PROPOSTAS ({{ cliente.propostas | length }})
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    {% for p in cliente.propostas|sort(attribute='data_criacao_proposta', reverse=true) %}
+                    <div class="col-md-6">
+                        <div class="card border shadow-sm {{ 'border-danger' if p.status_cobranca == 'Pendente' }}">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between">
+                                    <span class="fw-bold">Proposta #{{ p.numero_proposta }}</span>
+                                    <span class="badge bg-danger">{{ p.valor | moeda }}</span>
+                                </div>
+                                <small class="text-muted d-block">{{ p.data_criacao_proposta.strftime('%d/%m/%Y') if p.data_criacao_proposta }} — {{ p.contato }}</small>
+                                <span class="badge bg-secondary mt-2">{{ p.status_cobranca }}</span>
+                                <div class="btn-group btn-group-sm mt-2 w-100">
+                                    <a href="/proposta/{{ p.id }}/status/Negociando" class="btn btn-outline-info">Negociando</a>
+                                    <a href="/proposta/{{ p.id }}/status/Ok" class="btn btn-outline-success">Cobrado</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="col-12 text-center text-muted py-3">Nenhuma proposta importada para este cliente.</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
         <div class="card shadow-sm border h-100">
             <div class="card-header bg-primary-custom text-white fw-bold">
                 <i class="bi bi-envelope-paper me-2"></i> Gerador de Mensagem
             </div>
             <div class="card-body bg-light overflow-auto" style="max-height: 800px;">
-                
+
                 <p class="alert alert-info py-2 small border-0 mb-4">
                     <i class="bi bi-pencil-fill me-2"></i> <strong>Editável:</strong> Clique no ícone de lápis ou direto no texto para alterar antes de copiar.
                 </p>

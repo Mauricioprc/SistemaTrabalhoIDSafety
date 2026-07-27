@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<div class="mb-4">
+    <h1 class="fw-bold text-primary-custom">Propostas por Unidade (Raízen)</h1>
+    <p class="text-muted">Propostas agrupadas pela unidade correspondente ao CNPJ do cliente.</p>
+</div>
+
+{% for unidade, cliente in grupos %}
+<div class="card shadow-sm border mb-4">
+    <div class="card-header bg-light fw-bold d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-building me-2"></i>{{ unidade.nome }}</span>
+        <span class="badge bg-danger">{{ cliente.valor_pendente | moeda }}</span>
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+            {% for p in cliente.propostas|sort(attribute='data_criacao_proposta', reverse=true) %}
+            <div class="col-md-6">
+                <div class="card border shadow-sm {{ 'border-danger' if p.status_cobranca == 'Pendente' }}">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <span class="fw-bold">Proposta #{{ p.numero_proposta }}</span>
+                            <span class="badge bg-danger">{{ p.valor | moeda }}</span>
+                        </div>
+                        <small class="text-muted d-block">{{ p.data_criacao_proposta.strftime('%d/%m/%Y') if p.data_criacao_proposta }} — {{ p.contato }}</small>
+                        <div class="btn-group btn-group-sm mt-2 w-100">
+                            <a href="/proposta/{{ p.id }}/status/Negociando" class="btn btn-outline-info">Negociando</a>
+                            <a href="/proposta/{{ p.id }}/status/Ok" class="btn btn-outline-success">Cobrado</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="text-center text-muted py-5">Nenhuma unidade com propostas vinculadas.</div>
+{% endfor %}
+
+{% endblock %}

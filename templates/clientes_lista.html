@@ -45,7 +45,7 @@
                 <tr class="{{ 'bg-warning bg-opacity-10' if cliente.valor_pendente > 0 else '' }}">
                     <td class="ps-4">
                         <div class="fw-bold text-dark">{{ cliente.razao_social }}</div>
-                        <small class="text-muted">{{ cliente.vendedor or 'Sem vendedor' }}</small>
+                        <small class="text-muted">{{ cliente.vendedor or 'Sem vendedor' }} &middot; {{ cliente.propostas | length }} propostas</small>
                     </td>
                     <td><span class="badge bg-light text-secondary border">{{ cliente.cnpj | cnpj }}</span></td>
                     

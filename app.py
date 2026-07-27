@@ -81,13 +81,33 @@ class Cliente(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     razao_social = db.Column(db.String(150), nullable=False)
     cnpj = db.Column(db.String(20), unique=True)
-    emails_cobranca = db.Column(db.Text) 
+    emails_cobranca = db.Column(db.Text)
     telefone = db.Column(db.String(50))
     vendedor = db.Column(db.String(100))
-    valor_pendente = db.Column(db.Float, default=0.0) 
     data_atualizacao = db.Column(db.DateTime, default=datetime.utcnow)
-    status_cobranca = db.Column(db.String(50), default='Pendente') 
+    status_cobranca = db.Column(db.String(50), default='Pendente')
     observacoes_internas = db.Column(db.Text)
+    propostas = db.relationship('Proposta', backref='cliente', lazy=True, cascade="all, delete-orphan")
+
+    @property
+    def valor_pendente(self):
+        return sum(p.valor for p in self.propostas if p.status_cobranca != 'Ok')
+
+class Proposta(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    numero_proposta = db.Column(db.String(50), unique=True, nullable=False)
+    valor = db.Column(db.Float, default=0.0)
+    data_criacao_proposta = db.Column(db.DateTime)
+    status_cobranca = db.Column(db.String(50), default='Pendente')  # Pendente / Negociando / Ok
+    contato = db.Column(db.String(100))
+    celular = db.Column(db.String(20))
+    telefone = db.Column(db.String(20))
+    email_solicit = db.Column(db.String(200))
+    email_aprov = db.Column(db.Text)
+    email_nf = db.Column(db.Text)
+    vendedor = db.Column(db.String(100))
+    observacoes = db.Column(db.Text)
+    cliente_id = db.Column(db.Integer, db.ForeignKey('cliente.id'), nullable=False)
 
 # --- ROTAS GERAIS ---
 
@@ -102,11 +122,14 @@ def dashboard():
     
     ultimos_pedidos = Pedido.query.order_by(Pedido.data_upload.desc()).limit(5).all()
 
-    total_divida = db.session.query(db.func.sum(Cliente.valor_pendente)).filter(Cliente.status_cobranca != 'Ok').scalar() or 0.0
-    qtd_devedores = Cliente.query.filter(Cliente.valor_pendente > 0.01, Cliente.status_cobranca != 'Ok').count()
-    maior_devedor = Cliente.query.filter(Cliente.status_cobranca != 'Ok').order_by(Cliente.valor_pendente.desc()).first()
-    
-    top_devedores = Cliente.query.filter(Cliente.status_cobranca != 'Ok').order_by(Cliente.valor_pendente.desc()).limit(5).all()
+    clientes_ativos = [c for c in Cliente.query.filter(Cliente.status_cobranca != 'Ok').all() if c.valor_pendente > 0]
+    clientes_ativos.sort(key=lambda c: c.valor_pendente, reverse=True)
+
+    total_divida = sum(c.valor_pendente for c in clientes_ativos)
+    qtd_devedores = len(clientes_ativos)
+    maior_devedor = clientes_ativos[0] if clientes_ativos else None
+
+    top_devedores = clientes_ativos[:5]
     grafico_nomes = [c.razao_social[:15] + '...' for c in top_devedores] 
     grafico_valores = [c.valor_pendente for c in top_devedores]
 
@@ -278,44 +301,141 @@ def excluir_contato(id):
     return redirect(url_for('detalhe_unidade', id=uid))
 
 # --- COBRANÇA ---
+
+def parse_valor_brl(valor_str):
+    if valor_str is None or (isinstance(valor_str, float) and pd.isna(valor_str)):
+        return 0.0
+    limpo = str(valor_str).replace('R$', '').strip().replace('.', '').replace(',', '.')
+    try:
+        return float(limpo)
+    except (ValueError, TypeError):
+        return 0.0
+
+def parse_data_proposta(data_str):
+    if not data_str or (isinstance(data_str, float) and pd.isna(data_str)):
+        return None
+    try:
+        return datetime.strptime(str(data_str).strip(), '%d/%m/%Y %H:%M')
+    except (ValueError, TypeError):
+        return None
+
+def campo(row, nome):
+    valor = row.get(nome, '')
+    if valor is None or (isinstance(valor, float) and pd.isna(valor)):
+        return ''
+    return str(valor).strip()
+
 @app.route('/cobranca', methods=['GET', 'POST'])
 def cobranca():
     if request.method == 'POST':
         arquivo = request.files.get('planilha')
         if arquivo:
             try:
-                if arquivo.filename.endswith('.csv'): df = pd.read_csv(arquivo, encoding='utf-8', sep=',') 
-                else: df = pd.read_excel(arquivo)
-                atualizados = 0; novos = 0
-                for index, row in df.iterrows():
-                    cnpj_raw = str(row.get('CNPJ_CPF', '')); cnpj_limpo = re.sub(r'\D', '', cnpj_raw)
-                    if not cnpj_limpo: continue 
+                if arquivo.filename.endswith('.csv'):
+                    df = pd.read_csv(arquivo, encoding='utf-8-sig', sep=None, engine='python')
+                else:
+                    df = pd.read_excel(arquivo)
+                df.columns = [str(c).strip() for c in df.columns]
+
+                propostas_novas = 0
+                propostas_atualizadas = 0
+                clientes_novos = 0
+                numeros_no_import = set()
+
+                for _, row in df.iterrows():
+                    cnpj_raw = campo(row, 'Cnpj/Cpf')
+                    cnpj_limpo = re.sub(r'\D', '', cnpj_raw)
+                    if not cnpj_limpo:
+                        continue
+
+                    numero_proposta = campo(row, 'Nº Proposta')
+                    if not numero_proposta:
+                        continue
+                    numeros_no_import.add(numero_proposta)
+
+                    razao = campo(row, 'Razão Social')
+                    valor = parse_valor_brl(row.get('Total', 0))
+                    data_criacao = parse_data_proposta(row.get('Data Criação'))
+                    vendedor = campo(row, 'Vendedor')
+                    contato = campo(row, 'Contato')
+                    celular = campo(row, 'Celular')
+                    telefone = campo(row, 'Telefone')
+                    email_solicit = campo(row, 'Email Solicit.')
+                    email_aprov = campo(row, 'Email Aprov.')
+                    email_nf = campo(row, 'Email NF')
+
                     cliente = Cliente.query.filter_by(cnpj=cnpj_limpo).first()
-                    razao = str(row.get('RAZAO_SOCIAL', '')).strip()
-                    valor = pd.to_numeric(row.get('TOTAL_PROPOSTAS', 0), errors='coerce')
-                    if pd.isna(valor): valor = 0.0
-                    email_aprov = str(row.get('EMAIL_APROVACAO', '')).strip()
-                    if email_aprov == 'nan': email_aprov = ''
-                    tel = str(row.get('CELULAR', row.get('TELEFONE', '')))
-                    vendedor = str(row.get('VENDEDOR', ''))
-                    if cliente:
-                        cliente.valor_pendente = float(valor); cliente.data_atualizacao = datetime.utcnow()
-                        if not cliente.emails_cobranca and email_aprov: cliente.emails_cobranca = email_aprov
-                        if cliente.valor_pendente > 0:
-                            if cliente.status_cobranca == 'Ok': cliente.status_cobranca = 'Pendente'
-                        else: cliente.status_cobranca = 'Ok'
-                        atualizados += 1
+                    if not cliente:
+                        cliente = Cliente(razao_social=razao, cnpj=cnpj_limpo, emails_cobranca=email_aprov,
+                                           telefone=celular or telefone, vendedor=vendedor, status_cobranca='Pendente')
+                        db.session.add(cliente)
+                        db.session.flush()
+                        clientes_novos += 1
+
+                    proposta = Proposta.query.filter_by(numero_proposta=numero_proposta).first()
+                    if proposta:
+                        proposta.valor = valor
+                        proposta.data_criacao_proposta = data_criacao
+                        proposta.contato = contato
+                        proposta.celular = celular
+                        proposta.telefone = telefone
+                        proposta.email_solicit = email_solicit
+                        proposta.email_aprov = email_aprov
+                        proposta.email_nf = email_nf
+                        proposta.vendedor = vendedor
+                        propostas_atualizadas += 1
                     else:
-                        db.session.add(Cliente(razao_social=razao, cnpj=cnpj_limpo, emails_cobranca=email_aprov, telefone=tel, vendedor=vendedor, valor_pendente=float(valor), status_cobranca='Pendente' if float(valor) > 0 else 'Ok'))
-                        novos += 1
-                db.session.commit(); flash(f'Processado! {novos} novos, {atualizados} atualizados.', 'success')
-            except Exception as e: flash(f'Erro: {str(e)}', 'danger')
+                        db.session.add(Proposta(numero_proposta=numero_proposta, valor=valor,
+                                                 data_criacao_proposta=data_criacao, status_cobranca='Pendente',
+                                                 contato=contato, celular=celular, telefone=telefone,
+                                                 email_solicit=email_solicit, email_aprov=email_aprov,
+                                                 email_nf=email_nf, vendedor=vendedor, cliente_id=cliente.id))
+                        propostas_novas += 1
+
+                    cliente.data_atualizacao = datetime.utcnow()
+
+                # Remove propostas que não vieram mais nesta importação
+                propostas_removidas = Proposta.query.filter(~Proposta.numero_proposta.in_(numeros_no_import)).delete(synchronize_session=False)
+
+                db.session.commit()
+
+                for cliente in Cliente.query.all():
+                    cliente.status_cobranca = 'Ok' if cliente.valor_pendente <= 0 else (
+                        'Pendente' if cliente.status_cobranca == 'Ok' else cliente.status_cobranca)
+                db.session.commit()
+
+                flash(f'Processado! {clientes_novos} clientes novos, {propostas_novas} propostas novas, '
+                      f'{propostas_atualizadas} atualizadas, {propostas_removidas} removidas.', 'success')
+            except Exception as e:
+                flash(f'Erro: {str(e)}', 'danger')
         return redirect(url_for('cobranca'))
     q = request.args.get('q', ''); query = Cliente.query
     if q:
         s = f"%{q}%"; query = query.filter(Cliente.razao_social.like(s) | Cliente.cnpj.like(s))
-    clientes = query.order_by(Cliente.valor_pendente.desc()).all()
+    clientes = sorted(query.all(), key=lambda c: c.valor_pendente, reverse=True)
     return render_template('clientes_lista.html', clientes=clientes, q=q)
+
+@app.route('/proposta/<int:id>/status/<status>')
+def marcar_status_proposta(id, status):
+    p = Proposta.query.get(id)
+    if p:
+        p.status_cobranca = status
+        db.session.commit()
+        flash(f'Proposta #{p.numero_proposta}: {status}.', 'info')
+    return redirect(request.referrer or url_for('cobranca'))
+
+@app.route('/raizen/propostas')
+def raizen_propostas():
+    unidades = Unidade.query.all()
+    grupos = []
+    for u in unidades:
+        cnpj_limpo = limpar_input(u.cnpj)
+        if not cnpj_limpo:
+            continue
+        cliente = Cliente.query.filter_by(cnpj=cnpj_limpo).first()
+        if cliente and cliente.propostas:
+            grupos.append((u, cliente))
+    return render_template('raizen_propostas.html', grupos=grupos)
 
 @app.route('/cliente/<int:id>', methods=['GET', 'POST'])
 def detalhe_cliente(id):
