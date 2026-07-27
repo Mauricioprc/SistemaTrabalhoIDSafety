@@ -1,0 +1,190 @@
+/* --- VARIÁVEIS DE DESIGN (TEMA PERSONALIZADO PRETO/VERDE) --- */
+:root {
+    /* Suas cores personalizadas mantidas */
+    --primary: #000000;       /* Preto */
+    --primary-light: #333333; /* Cinza escuro para hover */
+    --accent: #108b20;        /* Verde Vibrante */
+    --accent-hover: #0d701a;  /* Verde mais escuro */
+    
+    --bg-body: #ffffff;       /* Fundo Branco */
+    --text-main: #2D3748;
+    --text-muted: #718096;
+    --white: #FFFFFF;
+    
+    --shadow-sm: 0 2px 4px rgba(0,0,0,0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    --radius: 12px;
+}
+
+body {
+    background-color: var(--bg-body);
+    font-family: 'Inter', sans-serif;
+    color: var(--text-main);
+}
+
+/* Navbar */
+.navbar {
+    background: var(--white);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+.navbar-brand { font-weight: 800; color: var(--primary) !important; }
+.nav-link { font-weight: 500; color: #666 !important; }
+.nav-link.active { color: var(--accent) !important; }
+
+/* Cards (CORREÇÃO: Borda visível agora) */
+.card {
+    background: var(--white);
+    border: 1px solid #e0e0e0; /* Mudado de #ffffff para cinza visível */
+    border-radius: var(--radius);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 15px rgba(0,0,0,0.05) !important;
+    border-color: #d0d0d0;
+}
+
+/* Botões */
+.btn { border-radius: 8px; font-weight: 600; padding: 0.5rem 1rem; }
+.btn-primary-custom { background-color: var(--primary); border-color: var(--primary); color: #fff; }
+.btn-primary-custom:hover { background-color: var(--primary-light); border-color: var(--primary-light); }
+
+.btn-outline-primary-custom { border-color: var(--primary); color: var(--primary); background: transparent; }
+.btn-outline-primary-custom:hover { background: var(--primary); color: #fff; }
+
+.btn-orange-custom { background-color: var(--accent); border-color: var(--accent); color: #fff; }
+.btn-orange-custom:hover { background-color: var(--accent-hover); border-color: var(--accent-hover); }
+
+/* Inputs e Formulários (CORREÇÃO: Bordas visíveis) */
+.form-control, .form-select {
+    background-color: var(--white);
+    border: 1px solid #ced4da; /* Mudado de #ffffff para cinza padrão */
+    border-radius: 8px;
+    padding: 0.6rem 0.8rem;
+    font-size: 0.95rem;
+}
+.form-control:focus, .form-select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(16, 139, 32, 0.15); /* Foco verde suave */
+}
+
+.input-group-text {
+    border: 1px solid #ced4da; /* Borda visível */
+    border-right: none; /* Remove a borda direita para colar no input */
+    background-color: #f8f9fa; /* Fundo levemente cinza */
+    border-radius: 8px 0 0 8px;
+}
+
+/* Detalhes */
+.icon-circle {
+    display: flex; align-items: center; justify-content: center;
+}
+/* Linha divisória com suas cores */
+.gradient-divider {
+    height: 3px;
+    background: linear-gradient(90deg, var(--primary) 0%, var(--accent) 100%);
+}
+.hover-bg-light:hover { background-color: #f8f9fa; }
+
+/* --- BADGES (ETIQUETAS) --- */
+.badge {
+    padding: 0.5em 0.8em;
+    font-weight: 600;
+    border-radius: 6px;
+    letter-spacing: 0.5px;
+}
+
+.badge-light {
+    background-color: #f8f9fa; /* Fundo levemente cinza para destacar do branco */
+    color: var(--text-muted);
+    border: 1px solid #e0e0e0 !important; /* Borda visível */
+}
+
+/* --- TABELAS --- */
+.table {
+    margin-bottom: 0;
+}
+.table thead th {
+    background-color: #f8f9fa;
+    color: var(--text-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 1px;
+    border-bottom: 2px solid #e0e0e0; /* Linha mais forte no cabeçalho */
+}
+.table tbody td {
+    vertical-align: middle;
+    color: var(--text-main);
+    border-bottom: 1px solid #f0f0f0; /* Linha suave entre itens */
+    padding: 1rem 0.75rem;
+}
+
+/* --- MODAIS --- */
+.modal-content {
+    border: none;
+    border-radius: 16px;
+    box-shadow: var(--shadow-lg);
+}
+.modal-header {
+    border-radius: 16px 16px 0 0;
+    padding: 1.5rem;
+}
+.modal-body {
+    padding: 1.5rem;
+}
+.modal-footer {
+    border-top: 1px solid #f0f0f0;
+    padding: 1rem 1.5rem;
+}
+
+/* Utilitários de Texto */
+.text-primary-custom { color: var(--primary) !important; }
+.text-orange-custom { color: var(--accent) !important; }
+/* --- MELHORIAS VISUAIS EXTRAS (TOQUE PREMIUM) --- */
+
+
+
+
+/* 3. Tabela mais interativa (Hover verde suave) */
+.table-hover tbody tr:hover {
+    background-color: rgba(16, 139, 32, 0.05) !important; /* Fundo verde muito claro ao passar o mouse */
+    transition: background-color 0.2s ease;
+}
+
+/* 4. Botões com sombra suave (Efeito 3D sutil) */
+.btn-primary-custom, .btn-orange-custom {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s ease;
+}
+
+.btn-primary-custom:hover, .btn-orange-custom:hover {
+    transform: translateY(-2px); /* Eleva o botão levemente ao passar o mouse */
+    box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+}
+/* Força tudo que usa a cor primária a ser PRETO (da sua variável) */
+.text-primary {
+    color: var(--primary) !important;
+}
+
+/* Força específica para os ícones de Lápis (Editar) e PDF */
+.bi-pencil, 
+.bi-pencil-square, 
+.bi-file-earmark-pdf-fill,
+.bi-file-earmark-pdf {
+    color: var(--primary) !important; /* Fica Preto */
+}
+
+/* Links de arquivos (PDFs) */
+a.text-decoration-none {
+    color: var(--text-main) !important;
+}
+
+/* Efeito ao passar o mouse no PDF ou Lápis (fica Verde) */
+a.text-decoration-none:hover,
+.btn-link:hover .bi-pencil,
+.btn-link:hover .bi-pencil-square {
+    color: var(--accent) !important;
+    transition: color 0.2s ease;
+}

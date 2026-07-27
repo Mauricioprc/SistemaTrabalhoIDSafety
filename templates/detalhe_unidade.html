@@ -1,0 +1,350 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<div class="row align-items-center mb-4">
+    <div class="col-md-8">
+        <a href="/raizen" class="text-decoration-none text-muted fw-bold small mb-2 d-inline-block hover-arrow">
+            <i class="bi bi-arrow-left me-1"></i> Voltar para Lista
+        </a>
+        <h2 class="fw-bold text-primary-custom mb-2">{{ unidade.nome }}</h2>
+        <div class="d-flex gap-2 align-items-center flex-wrap">
+            <span class="badge bg-white text-dark border shadow-sm py-2 px-3 rounded-pill">
+                <i class="bi bi-geo-alt-fill text-danger me-2"></i>{{ unidade.cidade }}
+            </span>
+            <span class="badge bg-white text-secondary border shadow-sm py-2 px-3 rounded-pill d-inline-flex align-items-center">
+                <i class="bi bi-card-heading me-2"></i>
+                {{ unidade.cnpj | cnpj }}
+                <button class="btn btn-link p-0 ms-2 text-secondary" onclick="copiarCNPJ('{{ unidade.cnpj }}')" title="Copiar">
+                    <i class="bi bi-clipboard"></i>
+                </button>
+            </span>
+        </div>
+    </div>
+    <div class="col-md-4 text-md-end mt-3 mt-md-0">
+        <button class="btn btn-orange-custom text-white btn-lg shadow-sm" data-bs-toggle="modal" data-bs-target="#modalPedidoIndividual">
+            <i class="bi bi-cloud-upload me-2"></i>Novo Pedido Aqui
+        </button>
+    </div>
+</div>
+
+<div class="row g-4">
+    
+    <div class="col-lg-4">
+        
+        <div class="card shadow-sm border-0 mb-4" style="border-radius: 12px; overflow: hidden;">
+            <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
+                <h6 class="fw-bold text-dark m-0">
+                    <i class="bi bi-people-fill me-2 text-primary-custom"></i>Contatos
+                </h6>
+                <div class="d-flex gap-1">
+                    <button class="btn btn-sm btn-outline-secondary fw-bold rounded-pill" onclick="copiarTodosEmails()" title="Copiar todos os e-mails para envio em massa">
+                        <i class="bi bi-envelope-check-fill me-1"></i> Copiar Todos
+                    </button>
+                    <button class="btn btn-sm btn-light text-primary-custom fw-bold rounded-pill" data-bs-toggle="modal" data-bs-target="#modalNovoContato">
+                        <i class="bi bi-plus-lg"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="card-body p-0" style="max-height: 350px; overflow-y: auto;">
+                <div class="list-group list-group-flush">
+                    {% for contato in unidade.contatos_lista %}
+                    <div class="list-group-item border-light py-3 position-relative group-action">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <div class="fw-bold text-dark">{{ contato.nome }}</div>
+                                <div class="small text-muted">{{ contato.cargo or '' }}</div>
+                            </div>
+                            <div class="dropdown">
+                                <button class="btn btn-link text-muted p-0" type="button" data-bs-toggle="dropdown"><i class="bi bi-three-dots"></i></button>
+                                <ul class="dropdown-menu dropdown-menu-end border-0 shadow">
+                                    <li><a class="dropdown-item small" href="#" data-bs-toggle="modal" data-bs-target="#modalEditarContato{{ contato.id }}">Editar</a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li>
+                                        <form action="/excluir_contato/{{ contato.id }}" method="POST" onsubmit="return confirm('Excluir?');">
+                                            <button class="dropdown-item small text-danger">Excluir</button>
+                                        </form>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="mt-2 small text-muted">
+                            <div class="d-flex align-items-center mb-1"><i class="bi bi-whatsapp text-success me-2"></i> {{ contato.telefone or '--' }}</div>
+                            <div class="d-flex align-items-center"><i class="bi bi-envelope text-primary me-2"></i> {{ contato.email or '--' }}</div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="p-4 text-center text-muted small">Sem contatos cadastrados.</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="card shadow-sm border-0" style="border-radius: 12px;">
+            <div class="card-header bg-primary-custom text-white py-3">
+                <h6 class="fw-bold m-0"><i class="bi bi-chat-quote-fill me-2"></i>Mensagens Prontas</h6>
+            </div>
+            <div class="card-body bg-light">
+                <div class="card border mb-3">
+                    <div class="card-body p-3">
+                        <div class="d-flex justify-content-between mb-2">
+                            <h6 class="fw-bold text-dark small mb-0">1. Pedido s/ Proposta</h6>
+                            <button class="btn btn-sm btn-outline-dark py-0" onclick="copiarModelo('msgRaizen1')">Copiar</button>
+                        </div>
+                        <div class="bg-white p-2 rounded border text-muted small fst-italic" id="msgRaizen1" contenteditable="true">
+                            Bom dia, prezados.<br><br>
+                            Poderia, por gentileza, informar as propostas referentes aos pedidos anexados?<br>
+                            Gostaríamos de reforçar a importância de identificar corretamente a proposta no pedido, a fim de evitar retrabalhos e atrasos no processo de confecção.<br><br>
+                            Agradecemos pela atenção e aguardamos seu retorno.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card border">
+                    <div class="card-body p-3">
+                        <div class="d-flex justify-content-between mb-2">
+                            <h6 class="fw-bold text-dark small mb-0">2. Cobrança Padrão</h6>
+                            <button class="btn btn-sm btn-outline-dark py-0" onclick="copiarModelo('msgRaizen2')">Copiar</button>
+                        </div>
+                        <div class="bg-white p-2 rounded border text-muted small fst-italic" id="msgRaizen2" contenteditable="true">
+                            Olá,<br><br>
+                            Identificamos que o pedido em anexo encontra-se pendente de identificação/aprovação.<br>
+                            Poderiam nos dar um retorno para prosseguirmos?<br><br>
+                            Ficamos no aguardo.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="col-lg-8">
+        
+        <h6 class="fw-bold text-dark mb-3 ps-1">⚠️ Precisa de Ação ({{ pendentes|length }})</h6>
+        {% if pendentes %}
+            {% for pedido in pendentes %}
+            <div class="card border-0 shadow-sm mb-3 border-start border-4 border-warning" style="border-radius: 8px;">
+                <div class="card-body d-flex align-items-center justify-content-between p-3">
+                    <div class="d-flex align-items-center">
+                        <div class="me-3 text-center">
+                            <span class="d-block fw-bold text-warning small">{{ pedido.data_upload.strftime('%d/%m') }}</span>
+                            <i class="bi bi-file-earmark-pdf fs-4 text-secondary"></i>
+                        </div>
+                        <div>
+                            <a href="#" onclick="abrirPDF('{{ url_for('static', filename='pedidos_pdfs/' + pedido.arquivo) }}'); return false;" class="text-decoration-none text-dark fw-bold">
+                                {{ pedido.arquivo }}
+                            </a>
+                            <div class="small text-muted mt-1" style="max-width: 300px;">
+                                <i class="bi bi-pencil me-1"></i> {{ pedido.observacao or 'Sem observação' }}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <a href="/marcar_cobrado/{{ pedido.id }}" class="btn btn-outline-primary-custom btn-sm fw-bold px-3"><i class="bi bi-envelope-check me-2"></i>Já Cobrei</a>
+                        <a href="/concluir_pedido/{{ pedido.id }}" class="btn btn-success btn-sm text-white" title="Resolver"><i class="bi bi-check-lg"></i></a>
+                        <button class="btn btn-light btn-sm text-muted" data-bs-toggle="modal" data-bs-target="#modalEditarPedido{{ pedido.id }}"><i class="bi bi-pencil"></i></button>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="alert alert-light border border-dashed text-center text-muted mb-4 py-4">
+                <i class="bi bi-check-circle fs-4 d-block mb-2 text-success opacity-50"></i>
+                Nenhuma pendência para cobrar!
+            </div>
+        {% endif %}
+
+        <h6 class="fw-bold text-dark mb-3 mt-4 ps-1">📨 Aguardando Retorno ({{ cobrados|length }})</h6>
+        {% if cobrados %}
+            {% for pedido in cobrados %}
+            <div class="card border-0 shadow-sm mb-3 border-start border-4 border-primary" style="border-radius: 8px; background-color: #f8faff;">
+                <div class="card-body d-flex align-items-center justify-content-between p-3">
+                    <div class="d-flex align-items-center">
+                        <div class="me-3 text-center opacity-75">
+                            <span class="d-block fw-bold text-primary small">{{ pedido.data_upload.strftime('%d/%m') }}</span>
+                            <i class="bi bi-clock-history fs-4 text-primary"></i>
+                        </div>
+                        <div>
+                            <a href="#" onclick="abrirPDF('{{ url_for('static', filename='pedidos_pdfs/' + pedido.arquivo) }}'); return false;" class="text-decoration-none text-dark fw-medium">
+                                {{ pedido.arquivo }}
+                            </a>
+                            <div class="small text-primary fst-italic mt-1">Status: Aguardando cliente</div>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <a href="/concluir_pedido/{{ pedido.id }}" class="btn btn-success btn-sm text-white fw-bold px-3"><i class="bi bi-check-lg me-2"></i>Resolvido</a>
+                        <form action="/excluir_pedido/{{ pedido.id }}" method="POST" onsubmit="return confirm('Excluir?');">
+                            <button class="btn btn-light btn-sm text-danger"><i class="bi bi-trash"></i></button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="text-muted small ms-2 mb-4 fst-italic">Nenhum pedido em espera.</div>
+        {% endif %}
+
+        <h6 class="fw-bold text-muted mb-3 mt-4 ps-1 small text-uppercase">Histórico Recente</h6>
+        <div class="list-group shadow-sm" style="border-radius: 12px;">
+            {% for pedido in concluidos %}
+            <div class="list-group-item border-light py-2 d-flex justify-content-between align-items-center bg-white opacity-75">
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-check-circle-fill text-success me-3"></i>
+                    <a href="#" onclick="abrirPDF('{{ url_for('static', filename='pedidos_pdfs/' + pedido.arquivo) }}'); return false;" class="text-decoration-none text-muted small">
+                        {{ pedido.arquivo }}
+                    </a>
+                </div>
+                <span class="badge bg-light text-secondary fw-normal border">{{ pedido.data_upload.strftime('%d/%m/%Y') }}</span>
+            </div>
+            {% else %}
+            <div class="list-group-item text-center text-muted small py-3">Sem histórico.</div>
+            {% endfor %}
+        </div>
+
+    </div>
+</div>
+
+<div class="modal fade" id="modalVerPDF" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered" style="height: 90vh;">
+        <div class="modal-content h-100 border-0 shadow-lg">
+            <div class="modal-header py-2 bg-dark text-white">
+                <h6 class="modal-title fw-bold small">Visualizador de Arquivo</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0 bg-light">
+                <iframe id="iframePDF" src="" width="100%" height="100%" style="border: none;"></iframe>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalNovoContato" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-primary-custom text-white">
+                <h5 class="modal-title fw-bold">Novo Contato</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="/adicionar_contato/{{ unidade.id }}" method="POST">
+                <div class="modal-body p-4">
+                    <div class="mb-3"><label class="fw-bold small">Nome</label><input type="text" name="nome" class="form-control" required></div>
+                    <div class="mb-3"><label class="fw-bold small">Cargo</label><input type="text" name="cargo" class="form-control"></div>
+                    <div class="row">
+                        <div class="col-6 mb-3"><label class="fw-bold small">Telefone</label><input type="text" name="telefone" class="form-control"></div>
+                        <div class="col-6 mb-3"><label class="fw-bold small">E-mail</label><input type="email" name="email" class="form-control"></div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light"><button type="submit" class="btn btn-primary-custom w-100">Salvar</button></div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalPedidoIndividual" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-orange-custom text-white">
+                <h5 class="modal-title fw-bold">Novo Pedido</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="/lancar_pedido" method="POST" enctype="multipart/form-data">
+                <div class="modal-body p-4">
+                    <input type="hidden" name="unidade_id" value="{{ unidade.id }}">
+                    <input type="hidden" name="origem" value="detalhe">
+                    <div class="mb-3"><label class="fw-bold small">Arquivo PDF</label><input type="file" name="arquivo" class="form-control" accept=".pdf" required></div>
+                    <div class="mb-3"><label class="fw-bold small">Observação</label><textarea name="observacao" class="form-control" rows="2"></textarea></div>
+                </div>
+                <div class="modal-footer bg-light"><button type="submit" class="btn btn-orange-custom text-white w-100">Lançar</button></div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% for contato in unidade.contatos_lista %}
+<div class="modal fade" id="modalEditarContato{{ contato.id }}" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow border-0">
+            <div class="modal-header bg-light"><h6 class="modal-title fw-bold">Editar Contato</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <form action="/editar_contato/{{ contato.id }}" method="POST">
+                <div class="modal-body">
+                    <div class="mb-2"><input type="text" name="nome" class="form-control fw-bold" value="{{ contato.nome }}"></div>
+                    <div class="mb-2"><input type="text" name="cargo" class="form-control" value="{{ contato.cargo }}"></div>
+                    <div class="mb-2"><input type="text" name="telefone" class="form-control" value="{{ contato.telefone }}"></div>
+                    <div class="mb-2"><input type="email" name="email" class="form-control" value="{{ contato.email }}"></div>
+                </div>
+                <div class="modal-footer p-2 bg-light"><button type="submit" class="btn btn-primary-custom w-100 btn-sm">Salvar</button></div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+{% for pedido in pendentes + cobrados %}
+<div class="modal fade" id="modalEditarPedido{{ pedido.id }}" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow border-0">
+            <div class="modal-header bg-light"><h6 class="modal-title fw-bold">Editar Observação</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <form action="/editar_pedido_obs/{{ pedido.id }}" method="POST">
+                <div class="modal-body">
+                    <textarea name="observacao" class="form-control" rows="3">{{ pedido.observacao }}</textarea>
+                </div>
+                <div class="modal-footer p-2 bg-light"><button type="submit" class="btn btn-primary-custom w-100 btn-sm">Salvar</button></div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+<script>
+    function abrirPDF(url) {
+        var modal = new bootstrap.Modal(document.getElementById('modalVerPDF'));
+        document.getElementById('iframePDF').src = url;
+        modal.show();
+    }
+    
+    function copiarModelo(idDiv) {
+        var texto = document.getElementById(idDiv).innerText;
+        navigator.clipboard.writeText(texto);
+        alert("Mensagem copiada!");
+    }
+    
+    function copiarCNPJ(texto) {
+        navigator.clipboard.writeText(texto);
+        alert("CNPJ Copiado!");
+    }
+
+    // NOVA FUNÇÃO: COPIAR TODOS OS EMAILS
+    function copiarTodosEmails() {
+        // Pega todos os emails da página renderizados no python
+        // Como o JS não tem acesso direto ao objeto 'unidade' depois de renderizado,
+        // vamos ler direto da lista de contatos, mas para garantir limpeza,
+        // o jeito mais seguro é injetar a lista limpa via template:
+        
+        const emails = [
+            {% for c in unidade.contatos_lista %}
+                {% if c.email %} "{{ c.email }}", {% endif %}
+            {% endfor %}
+        ];
+        
+        // Limpa e remove duplicados
+        const emailsUnicos = [...new Set(emails.filter(e => e.trim() !== ""))];
+        
+        if (emailsUnicos.length === 0) {
+            alert("Nenhum e-mail cadastrado nesta unidade.");
+            return;
+        }
+        
+        // Junta com ponto e vírgula e espaço (padrão Outlook/Gmail)
+        const textoFinal = emailsUnicos.join('; ');
+        
+        navigator.clipboard.writeText(textoFinal).then(function() {
+            alert(emailsUnicos.length + " e-mails copiados para a área de transferência!");
+        }, function(err) {
+            alert("Erro ao copiar: " + err);
+        });
+    }
+</script>
+
+{% endblock %}
