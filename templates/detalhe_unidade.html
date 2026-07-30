@@ -2,6 +2,24 @@
 
 {% block content %}
 
+{% set propostas_pendentes = propostas | selectattr('status_cobranca', 'equalto', 'Pendente') | list %}
+
+{% set mensagem_combinada %}
+{%- if pendentes -%}
+Pedidos aguardando identificação de proposta:<br>
+{% for pedido in pendentes %}• Pedido nº {{ pedido.numero }} (enviado em {{ pedido.data_upload.strftime('%d/%m/%Y') }})<br>
+{% endfor %}
+{% endif -%}
+{%- if propostas_pendentes -%}
+<br>Propostas pendentes de aprovação:<br>
+{% for p in propostas_pendentes %}• Proposta nº {{ p.numero_proposta }} — {{ p.valor | moeda }}<br>
+{% endfor %}
+{% endif -%}
+{%- if not pendentes and not propostas_pendentes -%}
+[ Nenhum pedido ou proposta pendente localizado automaticamente. ]
+{% endif -%}
+{% endset %}
+
 <div class="row align-items-center mb-4">
     <div class="col-md-8">
         <a href="/raizen" class="text-decoration-none text-muted fw-bold small mb-2 d-inline-block hover-arrow">
@@ -89,13 +107,14 @@
                 <div class="card border mb-3">
                     <div class="card-body p-3">
                         <div class="d-flex justify-content-between mb-2">
-                            <h6 class="fw-bold text-dark small mb-0">1. Pedido s/ Proposta</h6>
+                            <h6 class="fw-bold text-dark small mb-0">1. Pedidos e Propostas Pendentes</h6>
                             <button class="btn btn-sm btn-outline-dark py-0" onclick="copiarModelo('msgRaizen1')">Copiar</button>
                         </div>
                         <div class="bg-white p-2 rounded border text-muted small fst-italic" id="msgRaizen1" contenteditable="true">
                             Bom dia, prezados.<br><br>
-                            Poderia, por gentileza, informar as propostas referentes aos pedidos anexados?<br>
-                            Gostaríamos de reforçar a importância de identificar corretamente a proposta no pedido, a fim de evitar retrabalhos e atrasos no processo de confecção.<br><br>
+                            Segue relação de pendências da unidade <strong>{{ unidade.nome }}</strong>:<br><br>
+                            {{ mensagem_combinada }}<br>
+                            Poderia, por gentileza, nos retornar o quanto antes? Gostaríamos de reforçar a importância de identificar corretamente a proposta no pedido, a fim de evitar retrabalhos e atrasos.<br><br>
                             Agradecemos pela atenção e aguardamos seu retorno.
                         </div>
                     </div>
@@ -121,7 +140,43 @@
     </div>
 
     <div class="col-lg-8">
-        
+
+        {% if cliente and cliente.propostas %}
+        <div class="d-flex justify-content-between align-items-center mb-3 ps-1">
+            <h6 class="fw-bold text-dark mb-0">💰 Propostas ({{ cliente.propostas | length }})</h6>
+            <a href="/cliente/{{ cliente.id }}" class="small fw-bold text-decoration-none text-primary-custom">
+                Ver cobrança completa <i class="bi bi-arrow-right"></i>
+            </a>
+        </div>
+        <div class="row g-3 mb-4">
+            {% for p in propostas %}
+            {% set dias = p.dias_parado %}
+            {% set cor = 'success' if dias < 7 else ('warning' if dias <= critico_dias else 'danger') %}
+            <div class="col-md-6">
+                <div class="card border shadow-sm {{ 'border-danger' if p.status_cobranca == 'Pendente' and dias > critico_dias }}">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <span class="fw-bold">Proposta #{{ p.numero_proposta }}</span>
+                            <span class="badge bg-danger">{{ p.valor | moeda }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mt-1">
+                            <small class="text-muted">{{ p.data_criacao_proposta.strftime('%d/%m/%Y') if p.data_criacao_proposta }} — {{ p.email_solicit or 'sem e-mail' }}</small>
+                            {% if p.status_cobranca == 'Pendente' %}
+                            <span class="badge bg-{{ cor }} {{ 'text-dark' if cor == 'warning' }}"><i class="bi bi-stopwatch me-1"></i>{{ dias }}d</span>
+                            {% endif %}
+                        </div>
+                        <span class="badge bg-secondary mt-2">{{ p.status_cobranca }}</span>
+                        <div class="btn-group btn-group-sm mt-2 w-100">
+                            <a href="/proposta/{{ p.id }}/status/Negociando" class="btn btn-outline-info">Negociando</a>
+                            <a href="/proposta/{{ p.id }}/status/Ok" class="btn btn-outline-success">Cobrado</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
         <h6 class="fw-bold text-dark mb-3 ps-1">⚠️ Precisa de Ação ({{ pendentes|length }})</h6>
         {% if pendentes %}
             {% for pedido in pendentes %}
@@ -134,7 +189,7 @@
                         </div>
                         <div>
                             <a href="#" onclick="abrirPDF('{{ url_for('static', filename='pedidos_pdfs/' + pedido.arquivo) }}'); return false;" class="text-decoration-none text-dark fw-bold">
-                                {{ pedido.arquivo }}
+                                Pedido nº {{ pedido.numero }}
                             </a>
                             <div class="small text-muted mt-1" style="max-width: 300px;">
                                 <i class="bi bi-pencil me-1"></i> {{ pedido.observacao or 'Sem observação' }}
@@ -168,7 +223,7 @@
                         </div>
                         <div>
                             <a href="#" onclick="abrirPDF('{{ url_for('static', filename='pedidos_pdfs/' + pedido.arquivo) }}'); return false;" class="text-decoration-none text-dark fw-medium">
-                                {{ pedido.arquivo }}
+                                Pedido nº {{ pedido.numero }}
                             </a>
                             <div class="small text-primary fst-italic mt-1">Status: Aguardando cliente</div>
                         </div>
@@ -193,7 +248,7 @@
                 <div class="d-flex align-items-center">
                     <i class="bi bi-check-circle-fill text-success me-3"></i>
                     <a href="#" onclick="abrirPDF('{{ url_for('static', filename='pedidos_pdfs/' + pedido.arquivo) }}'); return false;" class="text-decoration-none text-muted small">
-                        {{ pedido.arquivo }}
+                        Pedido nº {{ pedido.numero }}
                     </a>
                 </div>
                 <span class="badge bg-light text-secondary fw-normal border">{{ pedido.data_upload.strftime('%d/%m/%Y') }}</span>

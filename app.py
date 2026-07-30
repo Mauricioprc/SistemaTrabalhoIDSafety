@@ -84,9 +84,14 @@ class Pedido(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     arquivo = db.Column(db.String(200), nullable=False)
     data_upload = db.Column(db.Date, default=datetime.utcnow)
-    status = db.Column(db.String(50), default='Pendente') 
+    status = db.Column(db.String(50), default='Pendente')
     observacao = db.Column(db.Text, nullable=True)
     unidade_id = db.Column(db.Integer, db.ForeignKey('unidade.id'), nullable=False)
+
+    @property
+    def numero(self):
+        """Número do pedido: nome do PDF sem a extensão (ex: 361114.pdf -> 361114)."""
+        return os.path.splitext(self.arquivo)[0]
 
 class Cliente(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -233,25 +238,33 @@ def raizen():
         unidades = Unidade.query.filter(or_(Unidade.nome.like(s), Unidade.cidade.like(s), Unidade.cnpj.like(l))).all()
     else:
         unidades = Unidade.query.all()
-    
-    # --- ORDENAÇÃO INTELIGENTE CORRIGIDA ---
-    # Prioridade: 
-    # 2 = Tem Pendente (Amarelo) -> Fica no Topo
-    # 1 = Não tem Pendente, mas tem Cobrado (Azul) -> Fica no Meio
-    # 0 = Resto (Cinza) -> Fica no Fim
-    
+
+    clientes_por_cnpj = {c.cnpj: c for c in Cliente.query.options(joinedload(Cliente.propostas)).all()}
+    for u in unidades:
+        u.cliente_vinculado = clientes_por_cnpj.get(limpar_input(u.cnpj))
+
+    # --- ORDENAÇÃO INTELIGENTE ---
+    # 3 = Pedido pendente ou proposta crítica (+15 dias) -> Topo
+    # 2 = Tem proposta pendente (sem estar crítica ainda)
+    # 1 = Sem pendência ativa, mas tem pedido/proposta em negociação/cobrado
+    # 0 = Sem nenhuma pendência
     def get_prioridade(u):
-        tem_pendente = any(p.status == 'Pendente' for p in u.pedidos)
-        tem_cobrado = any(p.status == 'Cobrado' for p in u.pedidos)
-        
-        if tem_pendente: return 2
-        if tem_cobrado: return 1
+        tem_pedido_pendente = any(p.status == 'Pendente' for p in u.pedidos)
+        tem_pedido_cobrado = any(p.status == 'Cobrado' for p in u.pedidos)
+        cliente = u.cliente_vinculado
+        tem_proposta_critica = bool(cliente) and cliente.dias_parado_maximo > CRITICO_DIAS
+        tem_proposta_pendente = bool(cliente) and cliente.status_cobranca == 'Pendente'
+        tem_proposta_negociando = bool(cliente) and cliente.status_cobranca == 'Negociando'
+
+        if tem_pedido_pendente or tem_proposta_critica: return 3
+        if tem_proposta_pendente: return 2
+        if tem_pedido_cobrado or tem_proposta_negociando: return 1
         return 0
 
     # Ordena pela prioridade (maior primeiro) e depois pelo nome
     unidades = sorted(unidades, key=lambda u: (get_prioridade(u), u.nome), reverse=True)
-    
-    return render_template('raizen.html', unidades=unidades, q=q)
+
+    return render_template('raizen.html', unidades=unidades, q=q, critico_dias=CRITICO_DIAS)
 
 @app.route('/marcar_cobrado/<int:id>')
 def marcar_cobrado(id):
@@ -266,7 +279,13 @@ def detalhe_unidade(id):
     p1 = Pedido.query.filter_by(unidade_id=id, status='Pendente').order_by(Pedido.data_upload.asc()).all()
     p2 = Pedido.query.filter_by(unidade_id=id, status='Cobrado').order_by(Pedido.data_upload.desc()).all()
     p3 = Pedido.query.filter_by(unidade_id=id, status='Concluído').order_by(Pedido.data_upload.desc()).limit(10).all()
-    return render_template('detalhe_unidade.html', unidade=u, pendentes=p1, cobrados=p2, concluidos=p3)
+
+    cnpj_limpo = limpar_input(u.cnpj)
+    cliente = Cliente.query.options(joinedload(Cliente.propostas)).filter_by(cnpj=cnpj_limpo).first() if cnpj_limpo else None
+    propostas = sorted(cliente.propostas, key=lambda p: p.dias_parado, reverse=True) if cliente else []
+
+    return render_template('detalhe_unidade.html', unidade=u, pendentes=p1, cobrados=p2, concluidos=p3,
+                           cliente=cliente, propostas=propostas, critico_dias=CRITICO_DIAS)
 
 @app.route('/criar_unidade', methods=['POST'])
 def criar_unidade():
@@ -497,26 +516,6 @@ def marcar_status_propostas_lote(id, status):
     db.session.commit()
     flash(f'{atualizadas} proposta(s) marcadas como {status}.', 'info')
     return redirect(request.referrer or url_for('detalhe_cliente', id=id))
-
-@app.route('/raizen/propostas')
-def raizen_propostas():
-    q = request.args.get('q', '')
-    unidades = Unidade.query.all()
-    if q:
-        s = q.lower()
-        unidades = [u for u in unidades if s in (u.nome or '').lower() or s in (u.cidade or '').lower()]
-
-    grupos = []
-    for u in unidades:
-        cnpj_limpo = limpar_input(u.cnpj)
-        if not cnpj_limpo:
-            continue
-        cliente = Cliente.query.options(joinedload(Cliente.propostas)).filter_by(cnpj=cnpj_limpo).first()
-        if cliente and cliente.propostas:
-            grupos.append((u, cliente))
-
-    grupos.sort(key=lambda g: (-g[1].dias_parado_maximo, -g[1].valor_pendente))
-    return render_template('raizen_propostas.html', grupos=grupos, q=q, critico_dias=CRITICO_DIAS)
 
 @app.route('/cliente/<int:id>')
 def detalhe_cliente(id):
