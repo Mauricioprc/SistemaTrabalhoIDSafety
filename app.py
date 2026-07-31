@@ -387,9 +387,9 @@ def cobranca():
         if arquivo:
             try:
                 if arquivo.filename.endswith('.csv'):
-                    df = pd.read_csv(arquivo, encoding='utf-8-sig', sep=None, engine='python')
+                    df = pd.read_csv(arquivo, encoding='utf-8-sig', sep=None, engine='python', dtype=str)
                 else:
-                    df = pd.read_excel(arquivo)
+                    df = pd.read_excel(arquivo, dtype=str)
                 df.columns = [str(c).strip() for c in df.columns]
 
                 propostas_novas = 0
