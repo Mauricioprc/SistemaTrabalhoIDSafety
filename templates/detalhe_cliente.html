@@ -26,149 +26,79 @@
 {%- endif -%}
 {% endset %}
 
-<!-- CABEÇALHO DE DECISÃO -->
-<div class="mb-4">
-    <a href="/cobranca" class="text-decoration-none text-muted fw-bold small mb-2 d-inline-block">
-        <i class="bi bi-arrow-left me-1"></i> Voltar para Lista
-    </a>
-    <div class="card border-0 shadow-sm {{ 'bg-danger bg-opacity-10' if cliente.valor_pendente > 0 }}" style="border-radius: 14px;">
-        <div class="card-body p-4">
-            <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
-                <div>
-                    <h3 class="fw-bold text-dark mb-1">{{ cliente.razao_social }}</h3>
-                    <span class="badge bg-light text-secondary border me-1">{{ cliente.cnpj | cnpj }}</span>
-                    <span class="badge bg-light text-secondary border">{{ cliente.vendedor or 'Sem vendedor' }}</span>
-                </div>
-                <div class="text-end">
-                    {% if cliente.valor_pendente > 0 %}
-                        <div class="display-6 fw-bold text-danger">{{ cliente.valor_pendente | moeda }}</div>
-                    {% else %}
-                        <div class="fs-3 fw-bold text-success"><i class="bi bi-check-circle-fill"></i> EM DIA</div>
-                    {% endif %}
-                </div>
-            </div>
-            <p class="mb-0 mt-2 text-dark">
-                {% if propostas_pendentes %}
-                    <i class="bi bi-info-circle-fill text-primary me-1"></i>
-                    <strong>{{ propostas_pendentes | length }}</strong> proposta(s) pendente(s)
-                    {% if proposta_mais_antiga %}, a mais antiga há <strong>{{ proposta_mais_antiga.dias_parado }} dias</strong>{% endif %}.
-                {% else %}
-                    <i class="bi bi-check-circle text-success me-1"></i> Nenhuma proposta pendente no momento.
-                {% endif %}
-            </p>
-        </div>
-    </div>
-</div>
+<a href="/cobranca" class="text-decoration-none text-muted fw-bold small mb-2 d-inline-block">
+    <i class="bi bi-arrow-left me-1"></i> Voltar para o Painel de ação
+</a>
 
-<!-- SCORE DE PRIORIZAÇÃO -->
-<div class="card border-0 shadow-sm mb-4 {{ 'bg-danger bg-opacity-10' if cliente.score_prioridade }}" style="border-radius: 14px;">
-    <div class="card-body p-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
+<!-- CABEÇALHO -->
+<div class="card border-0 shadow-sm mb-3" style="border-radius: 14px;">
+    <div class="card-body p-4 d-flex justify-content-between align-items-start flex-wrap gap-3">
         <div>
-            <div class="small text-uppercase fw-bold text-muted">Score de Priorização</div>
-            <p class="mb-0 text-dark">{{ cliente.motivo_prioridade or 'Sem sinais de risco identificados' }}</p>
+            <h3 class="fw-bold text-dark mb-1">{{ cliente.razao_social }}</h3>
+            <span class="badge badge-light border me-1">{{ cliente.cnpj | cnpj }}</span>
+            {% if cliente.classe_abc_atual %}
+            <span class="badge badge-light border me-1">Classe {{ cliente.classe_abc_atual.classe }}</span>
+            {% endif %}
+            <span class="badge badge-light border">{{ cliente.vendedor or 'Sem representante' }}</span>
         </div>
-        <div class="display-6 fw-bold {{ 'text-danger' if cliente.score_prioridade else 'text-muted' }}">
-            {{ cliente.score_prioridade or 0 }}
+        <div class="text-end">
+            <div class="small text-uppercase fw-bold text-muted">Score</div>
+            <span class="badge {{ 'badge-soft-danger' if (cliente.score_prioridade or 0) >= 100 else ('badge-soft-warning' if (cliente.score_prioridade or 0) >= 50 else 'badge-light') }} fs-5 px-3 py-2">
+                {{ cliente.score_prioridade or 0 }}
+            </span>
         </div>
     </div>
 </div>
 
-<!-- CLIENTE 360: RETENÇÃO, NPS, CURVA ABC, CONTATOS -->
-<div class="row g-3 mb-4">
-    <div class="col-md-3">
-        <div class="card shadow-sm border h-100">
-            <div class="card-header bg-light fw-bold text-muted small border-bottom">RETENÇÃO</div>
-            <div class="card-body">
-                {% if indicador_retencao %}
-                    <div class="fw-bold">{{ indicador_retencao.classificacao or '—' }}</div>
-                    <div class="small text-muted">Frequência: {{ indicador_retencao.frequencia_compra or '—' }}</div>
-                    <div class="small text-muted">{{ indicador_retencao.dias_desde_ultimo_pedido }} dias sem pedido</div>
-                    {% if indicador_retencao.ira_cair %}
-                        <span class="badge bg-danger mt-2"><i class="bi bi-exclamation-triangle-fill me-1"></i>Risco de queda</span>
-                        {% if indicador_retencao.previsao_queda %}<div class="small text-muted mt-1">Previsão: {{ indicador_retencao.previsao_queda.strftime('%d/%m/%Y') }}</div>{% endif %}
-                    {% endif %}
-                {% else %}
-                    <span class="text-muted small">Sem dado de retenção importado.</span>
-                {% endif %}
+<!-- FAIXA DE ALERTA (motivo de prioridade) -->
+{% if cliente.motivo_prioridade and cliente.score_prioridade %}
+<div class="p-3 mb-3 fw-bold {{ 'faixa-alerta-danger' if cliente.score_prioridade >= 100 else 'faixa-alerta-warning' }}">
+    <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ cliente.motivo_prioridade }}
+</div>
+{% endif %}
+
+<!-- 4 MÉTRICAS -->
+<div class="row g-3 mb-3">
+    <div class="col-6 col-md-3">
+        <div class="card border shadow-sm h-100">
+            <div class="card-body p-3">
+                <div class="small text-uppercase fw-bold text-muted">Frequência de compra</div>
+                <div class="fs-5 fw-bold text-dark">{{ (indicador_retencao.frequencia_compra if indicador_retencao else None) or '—' }}</div>
             </div>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card shadow-sm border h-100">
-            <div class="card-header bg-light fw-bold text-muted small border-bottom">CURVA ABC</div>
-            <div class="card-body">
-                {% if classe_abc_atual %}
-                    <div class="display-6 fw-bold">{{ classe_abc_atual.classe }}</div>
-                    <div class="small text-muted">{{ classe_abc_atual.total_vendas | moeda }} no trimestre {{ classe_abc_atual.trimestre_referencia }}</div>
-                    <div class="small text-muted">{{ classe_abc_atual.percentual_individual }}% individual</div>
-                {% else %}
-                    <span class="text-muted small">Sem classificação ABC importada.</span>
-                {% endif %}
+    <div class="col-6 col-md-3">
+        <div class="card border shadow-sm h-100">
+            <div class="card-body p-3">
+                <div class="small text-uppercase fw-bold text-muted">Dias sem pedido</div>
+                <div class="fs-5 fw-bold text-dark">{{ (indicador_retencao.dias_desde_ultimo_pedido if indicador_retencao else None) if indicador_retencao else '—' }}</div>
             </div>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card shadow-sm border h-100">
-            <div class="card-header bg-light fw-bold text-muted small border-bottom">NPS (HISTÓRICO)</div>
-            <div class="card-body" style="max-height: 180px; overflow-y: auto;">
-                {% for nota in notas_nps %}
-                    <div class="d-flex justify-content-between border-bottom py-1">
-                        <span class="badge {{ 'bg-success' if nota.nota >= 9 else ('bg-warning text-dark' if nota.nota >= 7 else 'bg-danger') }}">{{ nota.nota }}</span>
-                        <small class="text-muted">{{ nota.importado_em.strftime('%d/%m/%Y') }}</small>
-                    </div>
-                    {% if nota.comentario %}<div class="small text-muted fst-italic">"{{ nota.comentario }}"</div>{% endif %}
-                {% else %}
-                    <span class="text-muted small">Sem notas de NPS importadas.</span>
-                {% endfor %}
+    <div class="col-6 col-md-3">
+        <div class="card border shadow-sm h-100 {{ 'border-danger' if indicador_retencao and indicador_retencao.ira_cair }}">
+            <div class="card-body p-3">
+                <div class="small text-uppercase fw-bold text-muted">Irá cair?</div>
+                <div class="fs-5 fw-bold {{ 'text-danger' if indicador_retencao and indicador_retencao.ira_cair else 'text-dark' }}">
+                    {% if indicador_retencao %}{{ 'Sim' if indicador_retencao.ira_cair else 'Não' }}{% else %}—{% endif %}
+                </div>
             </div>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card shadow-sm border h-100">
-            <div class="card-header bg-light fw-bold text-muted small border-bottom">CONTATOS</div>
-            <div class="card-body" style="max-height: 180px; overflow-y: auto;">
-                {% for c in contatos %}
-                    <div class="border-bottom py-1">
-                        <div class="fw-bold small">{{ c.nome }}</div>
-                        <div class="small text-muted">{{ c.cargo or '' }} {{ c.telefone or '' }}</div>
-                    </div>
-                {% else %}
-                    <span class="text-muted small">Sem contatos cadastrados na unidade Raízen vinculada.</span>
-                {% endfor %}
+    <div class="col-6 col-md-3">
+        <div class="card border shadow-sm h-100">
+            <div class="card-body p-3">
+                <div class="small text-uppercase fw-bold text-muted">Última nota NPS</div>
+                {% set ultima_nota = notas_nps | first %}
+                <div class="fs-5 fw-bold {{ 'text-danger' if ultima_nota and ultima_nota.nota <= 6 else 'text-dark' }}">
+                    {{ ultima_nota.nota if ultima_nota else '—' }}
+                </div>
             </div>
         </div>
     </div>
 </div>
 
 <div class="row g-4">
-    <div class="col-lg-4">
-        <!-- CONTATO EM DESTAQUE -->
-        <div class="card shadow-sm border mb-3">
-            <div class="card-header bg-light fw-bold text-muted small border-bottom">CONTATO PARA COBRANÇA</div>
-            <div class="card-body">
-                <label class="small text-muted fw-bold">E-mails</label>
-                <div class="input-group mb-2">
-                    <textarea class="form-control" rows="2" id="emailQuickCopy" readonly>{{ emails_para_cobranca | join(', ') }}</textarea>
-                    <button type="button" class="btn btn-outline-secondary" onclick="copiarTexto('emailQuickCopy')" title="Copiar E-mails">
-                        <i class="bi bi-clipboard"></i>
-                    </button>
-                </div>
-                <div class="d-flex gap-2">
-                    {% if cliente.telefone %}
-                    <a href="{{ cliente.telefone | whatsapp }}" target="_blank" class="btn btn-outline-success flex-fill">
-                        <i class="bi bi-whatsapp"></i> WhatsApp
-                    </a>
-                    {% endif %}
-                    {% if emails_para_cobranca %}
-                    <a href="mailto:{{ emails_para_cobranca | join(',') }}?subject=Propostas Pendentes - {{ cliente.razao_social }}" class="btn btn-outline-primary-custom flex-fill">
-                        <i class="bi bi-envelope"></i> E-mail
-                    </a>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-    </div>
-
     <div class="col-lg-8">
         <!-- PROPOSTAS -->
         <div class="card shadow-sm border mb-3">
@@ -184,24 +114,24 @@
                 <div class="row g-3">
                     {% for p in propostas_ordenadas %}
                     {% set dias = p.dias_parado %}
-                    {% set cor = 'success' if dias < 7 else ('warning' if dias <= 15 else 'danger') %}
+                    {% set classe_status = {'Pendente': 'badge-soft-warning', 'Negociando': 'badge-soft-accent', 'Ok': 'badge-soft-success'}[p.status_cobranca] %}
                     <div class="col-md-6">
-                        <div class="card border shadow-sm {{ 'border-danger' if p.status_cobranca == 'Pendente' and dias > 15 }}">
+                        <div class="card border shadow-sm {{ 'border-danger' if p.status_cobranca == 'Pendente' and dias > critico_dias }}">
                             <div class="card-body">
                                 <div class="d-flex justify-content-between">
                                     <span class="fw-bold">Proposta #{{ p.numero_proposta }}</span>
-                                    <span class="badge bg-danger">{{ p.valor | moeda }}</span>
+                                    <span class="badge badge-soft-accent">{{ p.valor | moeda }}</span>
                                 </div>
                                 <div class="d-flex justify-content-between align-items-center mt-1">
                                     <small class="text-muted">{{ p.data_criacao_proposta.strftime('%d/%m/%Y') if p.data_criacao_proposta }} — {{ p.email_solicit or 'sem e-mail' }}</small>
                                     {% if p.status_cobranca == 'Pendente' %}
-                                    <span class="badge bg-{{ cor }} {{ 'text-dark' if cor == 'warning' }}"><i class="bi bi-stopwatch me-1"></i>{{ dias }}d</span>
+                                    <span class="badge {{ 'badge-soft-danger' if dias > critico_dias else 'badge-soft-warning' }}"><i class="bi bi-stopwatch me-1"></i>{{ dias }}d</span>
                                     {% endif %}
                                 </div>
-                                <span class="badge bg-secondary mt-2">{{ p.status_cobranca }}</span>
+                                <span class="badge {{ classe_status }} mt-2">{{ p.status_cobranca }}</span>
                                 <div class="btn-group btn-group-sm mt-2 w-100">
                                     <a href="/proposta/{{ p.id }}/status/Negociando" class="btn btn-outline-info">Negociando</a>
-                                    <a href="/proposta/{{ p.id }}/status/Ok" class="btn btn-outline-success">Cobrado</a>
+                                    <a href="/proposta/{{ p.id }}/status/Ok" class="btn btn-outline-success">Ok</a>
                                 </div>
                                 {% if p.email_aprov %}
                                 <a href="mailto:{{ p.email_aprov }}?subject=Proposta {{ p.numero_proposta }} Pendente - {{ cliente.razao_social }}" class="btn btn-sm btn-outline-secondary w-100 mt-1">
@@ -215,6 +145,22 @@
                     <div class="col-12 text-center text-muted py-3">Nenhuma proposta importada para este cliente.</div>
                     {% endfor %}
                 </div>
+            </div>
+        </div>
+
+        <!-- HISTÓRICO DE NOTAS NPS -->
+        <div class="card shadow-sm border mb-3">
+            <div class="card-header bg-light fw-bold text-muted small border-bottom">HISTÓRICO DE NPS</div>
+            <div class="card-body">
+                {% for nota in notas_nps %}
+                <div class="d-flex justify-content-between align-items-center border-bottom py-2">
+                    <span class="badge {{ 'badge-soft-danger' if nota.nota <= 6 else ('badge-soft-warning' if nota.nota <= 8 else 'badge-soft-success') }} fs-6">{{ nota.nota }}</span>
+                    <span class="text-muted small flex-fill mx-2">{{ nota.comentario or '' }}</span>
+                    <small class="text-muted">{{ nota.importado_em.strftime('%d/%m/%Y') }}</small>
+                </div>
+                {% else %}
+                <span class="text-muted small">Sem notas de NPS importadas.</span>
+                {% endfor %}
             </div>
         </div>
 
@@ -311,6 +257,57 @@
 
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <!-- BLOCO DE CONTATO -->
+        <div class="card shadow-sm border mb-3">
+            <div class="card-header bg-light fw-bold text-muted small border-bottom">CONTATO PARA COBRANÇA</div>
+            <div class="card-body">
+                <label class="small text-muted fw-bold">E-mails</label>
+                <div class="input-group mb-2">
+                    <textarea class="form-control" rows="2" id="emailQuickCopy" readonly>{{ emails_para_cobranca | join(', ') }}</textarea>
+                    <button type="button" class="btn btn-outline-secondary" onclick="copiarTexto('emailQuickCopy')" title="Copiar E-mails">
+                        <i class="bi bi-clipboard"></i>
+                    </button>
+                </div>
+                <div class="d-flex gap-2">
+                    {% if cliente.telefone %}
+                    <a href="{{ cliente.telefone | whatsapp }}" target="_blank" class="btn btn-outline-success flex-fill">
+                        <i class="bi bi-whatsapp"></i> WhatsApp
+                    </a>
+                    {% endif %}
+                    {% if emails_para_cobranca %}
+                    <a href="mailto:{{ emails_para_cobranca | join(',') }}?subject=Propostas Pendentes - {{ cliente.razao_social }}" class="btn btn-outline-primary-custom flex-fill">
+                        <i class="bi bi-envelope"></i> E-mail
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- CONTATOS DA UNIDADE -->
+        <div class="card shadow-sm border mb-3">
+            <div class="card-header bg-light fw-bold text-muted small border-bottom">CONTATOS</div>
+            <div class="card-body" style="max-height: 260px; overflow-y: auto;">
+                {% for c in contatos %}
+                <div class="border-bottom py-2">
+                    <div class="fw-bold small">{{ c.nome }}</div>
+                    <div class="small text-muted">{{ c.cargo or '' }}</div>
+                    <div class="d-flex gap-2 mt-1">
+                        {% if c.email %}<span class="small text-muted"><i class="bi bi-envelope me-1"></i>{{ c.email }}</span>{% endif %}
+                        {% if c.telefone %}
+                        <a href="{{ c.telefone | whatsapp }}" target="_blank" class="btn btn-sm btn-outline-success py-0 px-1" title="WhatsApp">
+                            <i class="bi bi-whatsapp"></i> {{ c.telefone }}
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+                {% else %}
+                <span class="text-muted small">Sem contatos cadastrados na unidade Raízen vinculada.</span>
+                {% endfor %}
             </div>
         </div>
     </div>

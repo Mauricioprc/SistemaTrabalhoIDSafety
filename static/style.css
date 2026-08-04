@@ -10,6 +10,16 @@
     --text-main: #2D3748;
     --text-muted: #718096;
     --white: #FFFFFF;
+
+    /* Cores de status/sinal usadas em badges e faixas de alerta */
+    --bg-danger: #f8d7da;
+    --text-danger: #b02a37;
+    --bg-warning: #fff3cd;
+    --text-warning: #997404;
+    --bg-accent: rgba(16, 139, 32, 0.12);
+    --text-accent: var(--accent);
+    --bg-success: #d1e7dd;
+    --text-success: #146c43;
     
     --shadow-sm: 0 2px 4px rgba(0,0,0,0.05);
     --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
@@ -100,6 +110,15 @@ body {
     color: var(--text-muted);
     border: 1px solid #e0e0e0 !important; /* Borda visível */
 }
+
+.badge-soft-danger { background-color: var(--bg-danger); color: var(--text-danger); }
+.badge-soft-warning { background-color: var(--bg-warning); color: var(--text-warning); }
+.badge-soft-accent { background-color: var(--bg-accent); color: var(--text-accent); }
+.badge-soft-success { background-color: var(--bg-success); color: var(--text-success); }
+
+/* Faixa de alerta do motivo de prioridade no Cliente 360 */
+.faixa-alerta-danger { background-color: var(--bg-danger); color: var(--text-danger); border-radius: var(--radius); }
+.faixa-alerta-warning { background-color: var(--bg-warning); color: var(--text-warning); border-radius: var(--radius); }
 
 /* --- TABELAS --- */
 .table {

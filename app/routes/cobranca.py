@@ -4,6 +4,7 @@ from sqlalchemy.orm import joinedload
 from app.extensions import db
 from app.models import Cliente, Proposta
 from app.services.importacao.propostas import importar_propostas
+from app.services.painel_acao import montar_painel
 from app.services.priorizacao import CRITICO_DIAS, recalcular_todos
 
 bp = Blueprint('cobranca', __name__)
@@ -26,45 +27,17 @@ def cobranca():
         return redirect(url_for('cobranca.cobranca'))
 
     q = request.args.get('q', '')
-    filtro = request.args.get('filtro', 'todos')
-    ordenar = request.args.get('ordenar', '')
-    ordenar_valor = ordenar == 'valor'
-    ordenar_score = ordenar == 'score'
+    filtro = request.args.get('filtro', '')
 
-    todos_clientes = Cliente.query.options(joinedload(Cliente.propostas)).all()
-    total_pendente = sum(c.valor_pendente for c in todos_clientes)
-    total_negociando = sum(c.valor_negociando for c in todos_clientes)
-    qtd_pendentes = sum(1 for c in todos_clientes if c.status_cobranca == 'Pendente')
-    qtd_negociando = sum(1 for c in todos_clientes if c.status_cobranca == 'Negociando')
-    qtd_criticos = sum(1 for c in todos_clientes if c.dias_parado_maximo > CRITICO_DIAS)
+    todos_clientes = Cliente.query.options(
+        joinedload(Cliente.propostas),
+        joinedload(Cliente.indicador_retencao),
+    ).all()
 
-    clientes = todos_clientes
-    if q:
-        s = q.lower()
-        clientes = [c for c in clientes if s in (c.razao_social or '').lower() or s in (c.cnpj or '')]
+    contagens, linhas = montar_painel(todos_clientes, filtro, q)
 
-    if filtro == 'pendentes':
-        clientes = [c for c in clientes if c.status_cobranca == 'Pendente']
-    elif filtro == 'negociando':
-        clientes = [c for c in clientes if c.status_cobranca == 'Negociando']
-    elif filtro == 'criticos':
-        clientes = [c for c in clientes if c.dias_parado_maximo > CRITICO_DIAS]
-    elif filtro == 'ok':
-        clientes = [c for c in clientes if c.status_cobranca == 'Ok']
-
-    prioridade = {'Pendente': 0, 'Negociando': 1, 'Ok': 2}
-    if ordenar_score:
-        clientes.sort(key=lambda c: -(c.score_prioridade or 0))
-    elif ordenar_valor:
-        clientes.sort(key=lambda c: (prioridade.get(c.status_cobranca, 1), -c.valor_pendente))
-    else:
-        clientes.sort(key=lambda c: (prioridade.get(c.status_cobranca, 1), -c.dias_parado_maximo, -c.valor_pendente))
-
-    return render_template('clientes_lista.html', clientes=clientes, q=q, filtro=filtro,
-                           ordenar_valor=ordenar_valor, ordenar_score=ordenar_score,
-                           total_pendente=total_pendente, total_negociando=total_negociando,
-                           qtd_pendentes=qtd_pendentes, qtd_negociando=qtd_negociando,
-                           qtd_criticos=qtd_criticos, critico_dias=CRITICO_DIAS)
+    return render_template('clientes_lista.html', linhas=linhas, contagens=contagens,
+                           q=q, filtro=filtro, critico_dias=CRITICO_DIAS)
 
 
 @bp.route('/proposta/<int:id>/status/<status>')
