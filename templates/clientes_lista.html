@@ -55,15 +55,20 @@
         {% set filtros = [('todos', 'Todos'), ('pendentes', 'Pendentes'), ('negociando', 'Negociando'), ('criticos', 'Críticos'), ('ok', 'Ok')] %}
         {% for valor, rotulo in filtros %}
         <a class="btn btn-sm rounded-pill fw-bold px-3 {{ 'btn-primary-custom' if filtro == valor else 'btn-outline-secondary' }}"
-           href="{{ url_for('cobranca', filtro=valor, q=q, ordenar='valor' if ordenar_valor else none) }}">
+           href="{{ url_for('cobranca.cobranca', filtro=valor, q=q, ordenar='valor' if ordenar_valor else none) }}">
             {{ rotulo }}
         </a>
         {% endfor %}
     </div>
     <div class="d-flex gap-2 align-items-center">
-        <a href="{{ url_for('cobranca', filtro=filtro, q=q, ordenar='valor' if not ordenar_valor else none) }}"
+        <a href="{{ url_for('cobranca.cobranca', filtro=filtro, q=q, ordenar='valor' if not ordenar_valor else none) }}"
            class="btn btn-sm {{ 'btn-primary-custom' if ordenar_valor else 'btn-outline-secondary' }}">
             <i class="bi bi-sort-numeric-down me-1"></i> Ordenar por valor
+        </a>
+        <a href="{{ url_for('cobranca.cobranca', filtro=filtro, q=q, ordenar='score' if not ordenar_score else none) }}"
+           class="btn btn-sm {{ 'btn-primary-custom' if ordenar_score else 'btn-outline-secondary' }}"
+           title="Ordena pelo score de priorização (services/priorizacao.py)">
+            <i class="bi bi-lightning-charge-fill me-1"></i> Ordenar por prioridade
         </a>
         <form method="GET" class="d-flex">
             <input type="hidden" name="filtro" value="{{ filtro }}">
@@ -84,6 +89,16 @@
                     <span class="badge bg-light text-secondary border">{{ cliente.cnpj | cnpj }}</span> &middot;
                     {{ cliente.propostas | length }} proposta(s)
                 </small>
+            </div>
+
+            <div class="text-center" style="min-width: 130px;" title="{{ cliente.motivo_prioridade or '' }}">
+                {% if cliente.score_prioridade %}
+                    <span class="badge {{ 'bg-danger' if cliente.score_prioridade >= 100 else 'bg-warning text-dark' }}">
+                        <i class="bi bi-lightning-charge-fill me-1"></i>{{ cliente.score_prioridade }}
+                    </span>
+                {% else %}
+                    <span class="text-muted small">—</span>
+                {% endif %}
             </div>
 
             <div class="text-center" style="min-width: 100px;">

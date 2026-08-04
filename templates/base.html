@@ -29,10 +29,11 @@
         <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"><span class="navbar-toggler-icon"></span></button>
         <div class="collapse navbar-collapse justify-content-center" id="navbarNav">
             <ul class="navbar-nav nav-pills-custom gap-3">
-                <li class="nav-item"><a class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" href="/"><i class="bi bi-grid-fill"></i> Dashboard</a></li>
-                <li class="nav-item"><a class="nav-link {% if request.endpoint == 'raizen' or request.endpoint == 'detalhe_unidade' %}active{% endif %}" href="/raizen"><i class="bi bi-building-fill"></i> Raízen</a></li>
-                <li class="nav-item"><a class="nav-link {% if request.endpoint == 'cobranca' or request.endpoint == 'detalhe_cliente' %}active{% endif %}" href="/cobranca"><i class="bi bi-wallet-fill"></i> Cobrança</a></li>
-                <li class="nav-item"><a class="nav-link {% if request.endpoint == 'tarefas' %}active{% endif %}" href="/tarefas"><i class="bi bi-kanban-fill"></i> Tarefas</a></li>
+                <li class="nav-item"><a class="nav-link {% if request.endpoint == 'dashboard.dashboard' %}active{% endif %}" href="/"><i class="bi bi-grid-fill"></i> Dashboard</a></li>
+                <li class="nav-item"><a class="nav-link {% if request.endpoint == 'raizen.raizen' or request.endpoint == 'raizen.detalhe_unidade' %}active{% endif %}" href="/raizen"><i class="bi bi-building-fill"></i> Raízen</a></li>
+                <li class="nav-item"><a class="nav-link {% if request.endpoint == 'cobranca.cobranca' or request.endpoint == 'clientes.detalhe_cliente' %}active{% endif %}" href="/cobranca"><i class="bi bi-wallet-fill"></i> Cobrança</a></li>
+                <li class="nav-item"><a class="nav-link {% if request.endpoint == 'tarefas.tarefas' %}active{% endif %}" href="/tarefas"><i class="bi bi-kanban-fill"></i> Tarefas</a></li>
+                <li class="nav-item"><a class="nav-link {% if request.endpoint == 'importacao.importacao' %}active{% endif %}" href="/importacao"><i class="bi bi-cloud-upload-fill"></i> Importação</a></li>
             </ul>
         </div>
         <div class="d-none d-lg-flex align-items-center gap-3">

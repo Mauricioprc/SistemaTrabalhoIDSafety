@@ -60,6 +60,86 @@
     </div>
 </div>
 
+<!-- SCORE DE PRIORIZAÇÃO -->
+<div class="card border-0 shadow-sm mb-4 {{ 'bg-danger bg-opacity-10' if cliente.score_prioridade }}" style="border-radius: 14px;">
+    <div class="card-body p-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <div>
+            <div class="small text-uppercase fw-bold text-muted">Score de Priorização</div>
+            <p class="mb-0 text-dark">{{ cliente.motivo_prioridade or 'Sem sinais de risco identificados' }}</p>
+        </div>
+        <div class="display-6 fw-bold {{ 'text-danger' if cliente.score_prioridade else 'text-muted' }}">
+            {{ cliente.score_prioridade or 0 }}
+        </div>
+    </div>
+</div>
+
+<!-- CLIENTE 360: RETENÇÃO, NPS, CURVA ABC, CONTATOS -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card shadow-sm border h-100">
+            <div class="card-header bg-light fw-bold text-muted small border-bottom">RETENÇÃO</div>
+            <div class="card-body">
+                {% if indicador_retencao %}
+                    <div class="fw-bold">{{ indicador_retencao.classificacao or '—' }}</div>
+                    <div class="small text-muted">Frequência: {{ indicador_retencao.frequencia_compra or '—' }}</div>
+                    <div class="small text-muted">{{ indicador_retencao.dias_desde_ultimo_pedido }} dias sem pedido</div>
+                    {% if indicador_retencao.ira_cair %}
+                        <span class="badge bg-danger mt-2"><i class="bi bi-exclamation-triangle-fill me-1"></i>Risco de queda</span>
+                        {% if indicador_retencao.previsao_queda %}<div class="small text-muted mt-1">Previsão: {{ indicador_retencao.previsao_queda.strftime('%d/%m/%Y') }}</div>{% endif %}
+                    {% endif %}
+                {% else %}
+                    <span class="text-muted small">Sem dado de retenção importado.</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm border h-100">
+            <div class="card-header bg-light fw-bold text-muted small border-bottom">CURVA ABC</div>
+            <div class="card-body">
+                {% if classe_abc_atual %}
+                    <div class="display-6 fw-bold">{{ classe_abc_atual.classe }}</div>
+                    <div class="small text-muted">{{ classe_abc_atual.total_vendas | moeda }} no trimestre {{ classe_abc_atual.trimestre_referencia }}</div>
+                    <div class="small text-muted">{{ classe_abc_atual.percentual_individual }}% individual</div>
+                {% else %}
+                    <span class="text-muted small">Sem classificação ABC importada.</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm border h-100">
+            <div class="card-header bg-light fw-bold text-muted small border-bottom">NPS (HISTÓRICO)</div>
+            <div class="card-body" style="max-height: 180px; overflow-y: auto;">
+                {% for nota in notas_nps %}
+                    <div class="d-flex justify-content-between border-bottom py-1">
+                        <span class="badge {{ 'bg-success' if nota.nota >= 9 else ('bg-warning text-dark' if nota.nota >= 7 else 'bg-danger') }}">{{ nota.nota }}</span>
+                        <small class="text-muted">{{ nota.importado_em.strftime('%d/%m/%Y') }}</small>
+                    </div>
+                    {% if nota.comentario %}<div class="small text-muted fst-italic">"{{ nota.comentario }}"</div>{% endif %}
+                {% else %}
+                    <span class="text-muted small">Sem notas de NPS importadas.</span>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm border h-100">
+            <div class="card-header bg-light fw-bold text-muted small border-bottom">CONTATOS</div>
+            <div class="card-body" style="max-height: 180px; overflow-y: auto;">
+                {% for c in contatos %}
+                    <div class="border-bottom py-1">
+                        <div class="fw-bold small">{{ c.nome }}</div>
+                        <div class="small text-muted">{{ c.cargo or '' }} {{ c.telefone or '' }}</div>
+                    </div>
+                {% else %}
+                    <span class="text-muted small">Sem contatos cadastrados na unidade Raízen vinculada.</span>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="row g-4">
     <div class="col-lg-4">
         <!-- CONTATO EM DESTAQUE -->
