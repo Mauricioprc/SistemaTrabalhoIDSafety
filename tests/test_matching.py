@@ -76,3 +76,22 @@ def test_normalizacao_ignora_caixa_acento_e_sufixo():
 
 def test_normalizacao_remove_acentos():
     assert normalizar_razao_social('Raízen Centro-Sul S.A.') == normalizar_razao_social('RAIZEN CENTRO SUL SA')
+
+
+def test_variacoes_de_caixa_acento_e_sufixo_casam_com_mesmo_cliente(db):
+    """Não basta a função de normalização produzir a mesma string — o
+    matching de verdade (resolver_razao_social) precisa casar cada variação
+    com o mesmo Cliente já cadastrado."""
+    cliente = cria_cliente(db, cnpj='44444444000100', razao_social='Bracell SP Celulose Ltda')
+
+    variacoes = [
+        'BRACELL SP CELULOSE LTDA',       # caixa alta
+        'bracell sp celulose s.a.',       # caixa baixa + sufixo diferente
+        'Brácell SP Célulose EIRELI',     # acento + outro sufixo
+    ]
+
+    for variacao in variacoes:
+        resultado, alias = resolver_razao_social(variacao)
+        assert resultado is not None, f'variação "{variacao}" não casou com nenhum cliente'
+        assert resultado.id == cliente.id, f'variação "{variacao}" casou com cliente errado'
+        assert alias.motivo_pendencia is None

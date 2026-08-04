@@ -7,7 +7,7 @@ from werkzeug.datastructures import FileStorage
 from app.models import Cliente, Proposta
 from app.services.importacao.empresas import EmpresasImportador
 from app.services.importacao.propostas import importar_propostas
-from app.services.painel_acao import cliente_novo
+from app.services.painel_acao import cliente_novo, montar_painel
 from tests.conftest import cria_cliente, dias_atras
 
 
@@ -24,17 +24,22 @@ def _csv_empresas(linhas):
 
 
 def test_import_empresas_cria_cliente_com_data_cadastro(db):
-    csv = _csv_empresas(['11111111000191;ACME INDUSTRIA LTDA;B2B;VENDEDOR X;1111111111;2222222222;'
-                         'fatura@acme.com;aprov@acme.com;—'])
+    csv = _csv_empresas([
+        '11111111000191;ACME INDUSTRIA LTDA;B2B;VENDEDOR X;1111111111;2222222222;'
+        'fatura@acme.com;aprov@acme.com;—',
+        '22222222000100;BETA COMERCIO LTDA;B2B;VENDEDOR Y;3333333333;4444444444;'
+        'fatura@beta.com;aprov@beta.com;—',
+    ])
 
     resultado = EmpresasImportador().processar(_arquivo(csv, 'empresas.csv'))
     db.session.commit()
 
-    assert resultado.sucesso == 1
-    cliente = Cliente.query.filter_by(cnpj='11111111000191').first()
-    assert cliente is not None
-    assert cliente.razao_social == 'ACME INDUSTRIA LTDA'
-    assert cliente.data_cadastro is not None
+    assert resultado.sucesso == 2
+    for cnpj, razao in [('11111111000191', 'ACME INDUSTRIA LTDA'), ('22222222000100', 'BETA COMERCIO LTDA')]:
+        cliente = Cliente.query.filter_by(cnpj=cnpj).first()
+        assert cliente is not None
+        assert cliente.razao_social == razao
+        assert cliente.data_cadastro is not None
 
 
 def test_reimportar_empresas_nao_duplica_nem_sobrescreve_data_cadastro(db):
@@ -107,3 +112,19 @@ def test_filtro_clientes_novos_respeita_janela_e_data_nula(db):
     assert cliente_novo(recente_sem_proposta) is True
     assert cliente_novo(antigo_sem_proposta) is False
     assert cliente_novo(sem_data_sem_proposta) is False
+
+
+def test_painel_de_acao_conta_e_filtra_clientes_novos_corretamente(db):
+    """Mesma checagem acima, mas passando pelo caminho real do painel de
+    ação (montar_painel), não só a função utilitária isolada."""
+    recente_sem_proposta = cria_cliente(db, cnpj='30000000000191', data_cadastro=dias_atras(10))
+    cria_cliente(db, cnpj='30000000000272', data_cadastro=dias_atras(90))   # fora da janela
+    cria_cliente(db, cnpj='30000000000353', data_cadastro=None)             # sem data
+    db.session.commit()
+
+    clientes = Cliente.query.all()
+    contagens, linhas = montar_painel(clientes, filtro='novo', q='')
+
+    assert contagens['novo'] == 1
+    ids_no_filtro = {linha['cliente'].id for linha in linhas}
+    assert ids_no_filtro == {recente_sem_proposta.id}
