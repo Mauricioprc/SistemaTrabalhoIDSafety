@@ -11,6 +11,11 @@ class Cliente(db.Model):
     telefone = db.Column(db.String(50))
     vendedor = db.Column(db.String(100))
     data_atualizacao = db.Column(db.DateTime, default=datetime.utcnow)
+    # Data em que o Cliente foi criado no sistema (setada só na criação, pelos
+    # importadores de Empresas/Propostas). NULL para os registros que já
+    # existiam antes desse campo — nunca inferida/backfilled, pois não há
+    # como saber a data real de cadastro deles.
+    data_cadastro = db.Column(db.DateTime, nullable=True)
 
     # Derivado pelo services/priorizacao.py a cada importação — não é fonte de verdade.
     score_prioridade = db.Column(db.Integer, default=0)

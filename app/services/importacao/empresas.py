@@ -28,7 +28,7 @@ class EmpresasImportador(ImportadorBase):
 
         cliente = Cliente.query.filter_by(cnpj=cnpj).first()
         if not cliente:
-            cliente = Cliente(razao_social=razao, cnpj=cnpj)
+            cliente = Cliente(razao_social=razao, cnpj=cnpj, data_cadastro=datetime.utcnow())
             db.session.add(cliente)
 
         cliente.razao_social = razao

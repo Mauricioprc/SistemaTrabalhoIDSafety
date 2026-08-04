@@ -5,9 +5,15 @@ e a lista unificada exibida abaixo dos cards/filtros.
 Não introduz nenhum dado novo: tudo é derivado de Cliente/Proposta/
 IndicadorRetencao já existentes, na hora da requisição.
 """
+from datetime import datetime, timedelta
+
 from app.services.priorizacao import CRITICO_DIAS, DIAS_ESPERADOS_POR_FREQUENCIA
 
 SCORE_PRIORIDADE_ALTA = 50   # corte para o sinal "prioridade alta" no painel
+
+# Janela de dias após o cadastro em que um cliente ainda conta como "novo"
+# (meio-termo entre os 30-60 dias considerados aceitáveis pelo usuário).
+DIAS_CLIENTE_NOVO = 45
 
 # Ordem de prioridade quando um cliente se encaixa em mais de uma categoria
 # ao mesmo tempo — decide qual badge/motivo aparece na lista unificada.
@@ -34,9 +40,22 @@ def categorias_do_cliente(cliente):
         categorias.add('sem_comprar')
     if cliente.dias_parado_maximo > CRITICO_DIAS:
         categorias.add('proposta_parada')
-    if len(cliente.propostas) == 0:
+    if cliente_novo(cliente):
         categorias.add('novo')
     return categorias
+
+
+def cliente_novo(cliente):
+    """Cliente novo = cadastro recente (dentro de DIAS_CLIENTE_NOVO) e ainda
+    sem nenhuma Proposta. Clientes com data_cadastro=NULL (toda a base
+    anterior a esse campo existir) nunca entram aqui — não há como saber se
+    são recentes, então ficam de fora em vez de aparecerem errado."""
+    if cliente.data_cadastro is None:
+        return False
+    if len(cliente.propostas) > 0:
+        return False
+    limite = datetime.utcnow() - timedelta(days=DIAS_CLIENTE_NOVO)
+    return cliente.data_cadastro >= limite
 
 
 def badge_e_motivo(cliente, categoria):

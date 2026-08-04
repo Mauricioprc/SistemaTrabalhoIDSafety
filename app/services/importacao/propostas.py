@@ -78,7 +78,8 @@ def importar_propostas(arquivo):
         cliente = Cliente.query.filter_by(cnpj=cnpj_limpo).first()
         if not cliente:
             cliente = Cliente(razao_social=razao, cnpj=cnpj_limpo, emails_cobranca=email_aprov,
-                               telefone=celular or telefone, vendedor=vendedor)
+                               telefone=celular or telefone, vendedor=vendedor,
+                               data_cadastro=datetime.utcnow())
             db.session.add(cliente)
             db.session.flush()
             clientes_novos += 1
