@@ -47,12 +47,6 @@ body {
     background: var(--white);
     border: 1px solid #e0e0e0; /* Mudado de #ffffff para cinza visível */
     border-radius: var(--radius);
-    transition: transform 0.2s, box-shadow 0.2s;
-}
-.card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 10px 15px rgba(0,0,0,0.05) !important;
-    border-color: #d0d0d0;
 }
 
 /* Botões */
@@ -172,15 +166,9 @@ body {
     transition: background-color 0.2s ease;
 }
 
-/* 4. Botões com sombra suave (Efeito 3D sutil) */
+/* 4. Botões com sombra suave */
 .btn-primary-custom, .btn-orange-custom {
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    transition: all 0.2s ease;
-}
-
-.btn-primary-custom:hover, .btn-orange-custom:hover {
-    transform: translateY(-2px); /* Eleva o botão levemente ao passar o mouse */
-    box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
 }
 /* Força tudo que usa a cor primária a ser PRETO (da sua variável) */
 .text-primary {
