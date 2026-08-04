@@ -15,9 +15,19 @@ resolvidos automaticamente e desfaz os que na verdade eram ambíguos:
 
 Aliases que batem em exatamente 1 cliente não são tocados.
 
-Uso:
-    python fix_matching_ambiguo.py
+Já foi executado uma vez em produção (ver commit "Corrige matching ambiguo
+na importacao de Curva ABC") e não deveria ter efeito num banco já corrigido
+— mas continua útil como ferramenta de manutenção caso dado antigo seja
+reimportado por engano, por isso foi isolado aqui em vez de apagado.
+
+Uso (a partir da raiz do projeto):
+    python scripts/manutencao/fix_matching_ambiguo.py
 """
+import os
+import sys
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
+
 from app import create_app
 from app.extensions import db
 from app.models import ClasseABC, RazaoSocialAlias

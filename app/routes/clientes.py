@@ -3,7 +3,6 @@ from sqlalchemy.orm import joinedload
 
 from app.models import Cliente, Unidade
 from app.services.priorizacao import CRITICO_DIAS
-from app.utils.formatters import limpar_input
 
 bp = Blueprint('clientes', __name__)
 

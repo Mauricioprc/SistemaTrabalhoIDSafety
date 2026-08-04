@@ -6,7 +6,14 @@ from app.extensions import db, migrate
 from app.utils.formatters import formatar_cnpj, formatar_moeda, link_whatsapp
 
 
-def create_app():
+def create_app(config_overrides=None):
+    """`config_overrides` é aplicado ANTES de `db.init_app(app)` — o
+    Flask-SQLAlchemy lê SQLALCHEMY_DATABASE_URI já em init_app, então
+    sobrescrever app.config depois de chamar create_app() não isola nada
+    (foi exatamente isso que causou um data loss no banco de dev: os testes
+    trocavam a URI depois do fato e acabavam batendo no arquivo real). Testes
+    devem sempre passar config_overrides={'SQLALCHEMY_DATABASE_URI': ...}
+    aqui, nunca mutar app.config após o retorno desta função."""
     app = Flask(__name__,
                 template_folder=os.path.join(os.path.dirname(os.path.dirname(__file__)), 'templates'),
                 static_folder=os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static'))
@@ -20,6 +27,9 @@ def create_app():
     pasta_pdfs = os.path.join(basedir, 'static', 'pedidos_pdfs')
     os.makedirs(pasta_pdfs, exist_ok=True)
     app.config['PASTA_PDFS'] = pasta_pdfs
+
+    if config_overrides:
+        app.config.update(config_overrides)
 
     db.init_app(app)
     migrate.init_app(app, db)

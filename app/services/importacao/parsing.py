@@ -1,5 +1,4 @@
 """Helpers de parsing compartilhados pelos importadores de CSV."""
-import re
 from datetime import datetime
 
 from app.utils.formatters import limpar_input
@@ -47,12 +46,3 @@ def parse_valor_brl(valor) -> float:
         return float(limpo)
     except (ValueError, TypeError):
         return 0.0
-
-
-def parse_data_hora_br(valor: str):
-    if not valor:
-        return None
-    try:
-        return datetime.strptime(valor.strip(), '%d/%m/%Y %H:%M')
-    except (ValueError, TypeError):
-        return None

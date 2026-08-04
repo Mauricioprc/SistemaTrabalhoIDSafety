@@ -3,7 +3,7 @@ from datetime import datetime
 from app.extensions import db
 from app.models import Cliente, IndicadorRetencao
 from app.services.importacao.base import ImportadorBase
-from app.services.importacao.parsing import campo, cnpj_limpo, parse_data_br, parse_percentual
+from app.services.importacao.parsing import campo, cnpj_limpo, parse_data_br
 
 
 class RetencaoImportador(ImportadorBase):

@@ -1,10 +1,13 @@
 """
-Script de migração única: cria a tabela `proposta` e converte o
-`Cliente.valor_pendente` (antigo campo único) em uma Proposta "legada",
-para não perder o histórico de dívida já registrado no banco.
+OBSOLETO — mantido só como registro histórico, não roda mais como está.
 
-Rodar uma vez, ANTES do primeiro deploy do novo app.py:
-    python migrar_propostas.py
+Script de migração única: criava a tabela `proposta` e convertia o
+`Cliente.valor_pendente` (antigo campo único) em uma Proposta "legada",
+para não perder o histórico de dívida já registrado no banco. Já foi
+executado antes da Fase 1 (quando o app ainda era o `app.py` monolítico,
+removido na refatoração — este script importa `from app import app, db,
+...` no formato antigo e não funciona mais sem adaptação). Isolado aqui em
+vez de apagado, para auditoria de como aquela migração de dado foi feita.
 """
 from app import app, db, Cliente, Proposta
 

@@ -81,33 +81,34 @@ def badge_e_motivo(cliente, categoria):
 
 
 def montar_painel(clientes, filtro, q):
-    """Recebe a lista completa de clientes (já com joinedload das relações
-    necessárias) e devolve as contagens dos 4 cards e a lista de linhas
-    (dict) já filtrada/ordenada para exibição."""
+    """Recebe a lista completa de clientes (já com joinedload/selectinload das
+    relações necessárias) e devolve as contagens dos 4 cards e a lista de
+    linhas (dict) já filtrada/ordenada para exibição.
+
+    categorias_do_cliente() é calculado uma única vez por cliente (antes
+    rodava duas vezes: uma pra montar por_categoria/contagens, outra pra
+    montar a lista unificada quando não há filtro)."""
     if q:
         s = q.lower()
         clientes = [c for c in clientes if s in (c.razao_social or '').lower() or s in (c.cnpj or '')]
 
-    por_categoria = {cat: [] for cat in ORDEM_CATEGORIAS}
-    for cliente in clientes:
-        for categoria in categorias_do_cliente(cliente):
-            por_categoria[categoria].append(cliente)
+    categorias_por_cliente = {cliente.id: categorias_do_cliente(cliente) for cliente in clientes}
 
-    contagens = {cat: len(por_categoria[cat]) for cat in ORDEM_CATEGORIAS}
+    contagens = {
+        cat: sum(1 for categorias in categorias_por_cliente.values() if cat in categorias)
+        for cat in ORDEM_CATEGORIAS
+    }
 
     if filtro in ORDEM_CATEGORIAS:
-        clientes_do_filtro = por_categoria[filtro]
-        linhas = [_linha(c, filtro) for c in clientes_do_filtro]
+        linhas = [_linha(c, filtro) for c in clientes if filtro in categorias_por_cliente[c.id]]
     else:
-        vistos = set()
         linhas = []
         for cliente in clientes:
-            categorias = categorias_do_cliente(cliente)
-            if not categorias or cliente.id in vistos:
+            categorias = categorias_por_cliente[cliente.id]
+            if not categorias:
                 continue
             categoria_principal = next(cat for cat in ORDEM_CATEGORIAS if cat in categorias)
             linhas.append(_linha(cliente, categoria_principal))
-            vistos.add(cliente.id)
 
     linhas.sort(key=lambda linha: -(linha['cliente'].score_prioridade or 0))
 

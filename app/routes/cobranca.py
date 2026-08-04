@@ -1,5 +1,5 @@
 from flask import Blueprint, flash, redirect, render_template, request, url_for
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, selectinload
 
 from app.extensions import db
 from app.models import Cliente, Proposta
@@ -30,7 +30,7 @@ def cobranca():
     filtro = request.args.get('filtro', '')
 
     todos_clientes = Cliente.query.options(
-        joinedload(Cliente.propostas),
+        selectinload(Cliente.propostas),
         joinedload(Cliente.indicador_retencao),
     ).all()
 

@@ -1,3 +1,8 @@
+# OBSOLETO — mantido só como registro histórico, não roda mais como está.
+# Populava as unidades Raízen no antigo app.py monolítico (removido na
+# refatoração da Fase 1: `from app import app, db, Unidade` não existe mais
+# nesse formato). Isolado aqui em vez de apagado, para consulta da lista de
+# unidades/CNPJs que foi cadastrada manualmente na época.
 import re
 import sys
 import os

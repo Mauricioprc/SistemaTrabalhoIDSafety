@@ -3,6 +3,7 @@ apenas movido para a camada de serviço. Mantido fora da interface comum de
 ImportadorBase porque seu fluxo (planilha inteira substitui o conjunto de
 propostas ativas, com remoção do que não veio mais) é particular e já
 existia em produção antes da Fase 1 — não deve mudar de comportamento."""
+import io
 import re
 from datetime import datetime
 
@@ -42,10 +43,17 @@ def importar_propostas(arquivo):
     """Processa a planilha de propostas. Retorna dict com as contagens do
     resultado (clientes_novos, propostas_novas, propostas_atualizadas,
     propostas_removidas), igual à mensagem de flash original."""
+    # Lê o conteúdo para um BytesIO puro antes de passar pro pandas: alguns
+    # objetos file-like (ex: werkzeug.FileStorage, o que o Flask entrega em
+    # request.files) fazem o sniffer de delimitador do pandas (sep=None,
+    # engine='python') quebrar com "cannot use a string pattern on a
+    # bytes-like object" — bug de interação entre o tipo do stream e o
+    # csv.Sniffer, não do conteúdo em si.
+    conteudo = io.BytesIO(arquivo.read())
     if arquivo.filename.endswith('.csv'):
-        df = pd.read_csv(arquivo, encoding='utf-8-sig', sep=None, engine='python', dtype=str)
+        df = pd.read_csv(conteudo, encoding='utf-8-sig', sep=None, engine='python', dtype=str)
     else:
-        df = pd.read_excel(arquivo, dtype=str)
+        df = pd.read_excel(conteudo, dtype=str)
     df.columns = [str(c).strip() for c in df.columns]
 
     propostas_novas = 0

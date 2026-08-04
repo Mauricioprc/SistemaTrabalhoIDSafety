@@ -5,6 +5,8 @@ documentado abaixo; recalculado a cada importação de qualquer fonte, via
 `recalcular_todos()`. `score_prioridade` e `motivo_prioridade` em Cliente são
 derivados: nunca a fonte de verdade, sempre resultado deste cálculo.
 """
+from sqlalchemy.orm import joinedload, selectinload
+
 from app.extensions import db
 from app.models import Cliente
 
@@ -66,8 +68,24 @@ def calcular_score(cliente: Cliente):
 
 def recalcular_todos():
     """Recalcula score_prioridade/motivo_prioridade de todos os clientes.
-    Chamado ao final de cada importação (qualquer fonte)."""
-    for cliente in Cliente.query.all():
+    Chamado ao final de cada importação (qualquer fonte).
+
+    calcular_score() acessa indicador_retencao (1:1), classe_abc_atual (usa
+    classes_abc, 1:N), nota_nps_mais_recente (usa notas_nps, 1:N) e
+    qtd_pendentes/dias_parado_maximo (usam propostas, 1:N) de cada cliente —
+    sem eager loading isso é um N+1 clássico (uma query por relacionamento
+    por cliente). joinedload para o 1:1 e selectinload para os 1:N evita
+    isso: 1 query para os clientes + 1 query por coleção 1:N no total,
+    independente de quantos clientes existam.
+    """
+    clientes = Cliente.query.options(
+        joinedload(Cliente.indicador_retencao),
+        selectinload(Cliente.classes_abc),
+        selectinload(Cliente.notas_nps),
+        selectinload(Cliente.propostas),
+    ).all()
+
+    for cliente in clientes:
         score, motivo = calcular_score(cliente)
         cliente.score_prioridade = score
         cliente.motivo_prioridade = motivo
