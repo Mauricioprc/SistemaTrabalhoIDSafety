@@ -20,9 +20,11 @@ IMPORTADORES = {
 
 @bp.route('/importacao')
 def importacao():
-    aliases_pendentes = RazaoSocialAlias.query.filter_by(cliente_id=None).all()
+    aliases_sem_match = RazaoSocialAlias.query.filter_by(cliente_id=None, motivo_pendencia='sem_match').all()
+    aliases_ambiguos = RazaoSocialAlias.query.filter_by(cliente_id=None, motivo_pendencia='ambiguo').all()
     clientes = Cliente.query.order_by(Cliente.razao_social).all()
-    return render_template('importacao.html', fontes=IMPORTADORES, aliases_pendentes=aliases_pendentes,
+    return render_template('importacao.html', fontes=IMPORTADORES,
+                           aliases_sem_match=aliases_sem_match, aliases_ambiguos=aliases_ambiguos,
                            clientes=clientes)
 
 
@@ -66,6 +68,8 @@ def resolver_alias(alias_id):
     if cliente_id:
         alias.cliente_id = int(cliente_id)
         alias.resolvido_manualmente = True
+        alias.motivo_pendencia = None
+        alias.candidatos_ambiguos_ids = None
 
         if alias.trimestre_referencia_pendente:
             classe_abc = ClasseABC.query.filter_by(

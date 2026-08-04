@@ -49,6 +49,14 @@ class RazaoSocialAlias(db.Model):
     cliente_id = db.Column(db.Integer, db.ForeignKey('cliente.id'), nullable=True)
     resolvido_manualmente = db.Column(db.Boolean, default=False)
 
+    # Por que está pendente: 'sem_match' (0 candidatos) ou 'ambiguo' (2+
+    # candidatos com a mesma razão social normalizada). Nulo quando já
+    # resolvido (cliente_id preenchido).
+    motivo_pendencia = db.Column(db.String(20), nullable=True)
+    # IDs dos Cliente candidatos quando motivo_pendencia == 'ambiguo',
+    # serializados como "1,2,3" (lista simples, não justifica uma tabela à parte).
+    candidatos_ambiguos_ids = db.Column(db.Text, nullable=True)
+
     # Dados da linha da Curva ABC mais recente para essa razão social, mantidos
     # aqui enquanto o alias está pendente para que, ao resolver manualmente,
     # o ClasseABC correspondente possa ser criado sem precisar reimportar.
@@ -59,3 +67,11 @@ class RazaoSocialAlias(db.Model):
     trimestre_referencia_pendente = db.Column(db.String(10))
 
     cliente = db.relationship('Cliente', foreign_keys=[cliente_id])
+
+    @property
+    def candidatos_ambiguos(self):
+        if not self.candidatos_ambiguos_ids:
+            return []
+        from app.models.cliente import Cliente
+        ids = [int(i) for i in self.candidatos_ambiguos_ids.split(',') if i]
+        return Cliente.query.filter(Cliente.id.in_(ids)).all()

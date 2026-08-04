@@ -25,36 +25,62 @@
     {% endfor %}
 </div>
 
-{% if aliases_pendentes %}
+{% macro tabela_pendentes(aliases) %}
+<table class="table table-sm align-middle">
+    <thead>
+        <tr><th>Razão Social (planilha)</th><th>Cliente</th><th></th></tr>
+    </thead>
+    <tbody>
+        {% for alias in aliases %}
+        <tr>
+            <td>
+                {{ alias.razao_social_planilha }}
+                {% if alias.candidatos_ambiguos %}
+                <div class="small text-muted mt-1">
+                    Candidatos:
+                    {% for c in alias.candidatos_ambiguos %}
+                        <span class="badge bg-light text-dark border me-1">{{ c.razao_social }} — {{ c.cnpj | cnpj }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </td>
+            <td>
+                <form action="{{ url_for('importacao.resolver_alias', alias_id=alias.id) }}" method="POST" class="d-flex gap-2">
+                    <select name="cliente_id" class="form-select form-select-sm" required>
+                        <option value="">Selecione...</option>
+                        {% for cliente in clientes %}
+                        <option value="{{ cliente.id }}">{{ cliente.razao_social }} ({{ cliente.cnpj | cnpj }})</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="btn btn-sm btn-outline-primary-custom">Associar</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endmacro %}
+
+{% if aliases_ambiguos %}
+<div class="card shadow-sm border mb-4">
+    <div class="card-header bg-danger bg-opacity-25 fw-bold text-dark border-bottom">
+        <i class="bi bi-question-diamond-fill me-1"></i> Ambíguo — múltiplos candidatos com esse nome ({{ aliases_ambiguos | length }})
+    </div>
+    <div class="card-body">
+        <p class="text-muted small">Estas razões sociais da Curva ABC batem com mais de um Cliente cadastrado (ex: filiais/unidades diferentes da mesma empresa). Escolha manualmente o CNPJ correto para cada uma.</p>
+        {{ tabela_pendentes(aliases_ambiguos) }}
+    </div>
+</div>
+{% endif %}
+
+{% if aliases_sem_match %}
 <div class="card shadow-sm border mb-4">
     <div class="card-header bg-warning bg-opacity-25 fw-bold text-dark border-bottom">
-        <i class="bi bi-exclamation-triangle-fill me-1"></i> Curva ABC sem match automático ({{ aliases_pendentes | length }})
+        <i class="bi bi-exclamation-triangle-fill me-1"></i> Sem correspondência encontrada ({{ aliases_sem_match | length }})
     </div>
     <div class="card-body">
         <p class="text-muted small">Estas razões sociais vieram na Curva ABC mas não casaram com nenhum cliente cadastrado. Selecione o cliente correto para cada uma.</p>
-        <table class="table table-sm align-middle">
-            <thead>
-                <tr><th>Razão Social (planilha)</th><th>Cliente</th><th></th></tr>
-            </thead>
-            <tbody>
-                {% for alias in aliases_pendentes %}
-                <tr>
-                    <td>{{ alias.razao_social_planilha }}</td>
-                    <td>
-                        <form action="{{ url_for('importacao.resolver_alias', alias_id=alias.id) }}" method="POST" class="d-flex gap-2">
-                            <select name="cliente_id" class="form-select form-select-sm" required>
-                                <option value="">Selecione...</option>
-                                {% for cliente in clientes %}
-                                <option value="{{ cliente.id }}">{{ cliente.razao_social }} ({{ cliente.cnpj | cnpj }})</option>
-                                {% endfor %}
-                            </select>
-                            <button type="submit" class="btn btn-sm btn-outline-primary-custom">Associar</button>
-                        </form>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        {{ tabela_pendentes(aliases_sem_match) }}
     </div>
 </div>
 {% endif %}

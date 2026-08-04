@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from app.extensions import db
-from app.models import ClasseABC, RazaoSocialAlias
+from app.models import ClasseABC
 from app.services.importacao.base import ImportadorBase, ResultadoImportacao
 from app.services.importacao.matching import resolver_razao_social
 from app.services.importacao.parsing import campo, parse_percentual, parse_valor_brl
@@ -46,7 +46,7 @@ class CurvaABCImportador(ImportadorBase):
                 continue
 
             razao = campo(linha, 'Razão Social')
-            cliente, _ = resolver_razao_social(razao)
+            cliente, alias = resolver_razao_social(razao)
 
             classe = campo(linha, 'Classe')
             total_vendas = parse_valor_brl(campo(linha, 'Total Vendas'))
@@ -65,7 +65,6 @@ class CurvaABCImportador(ImportadorBase):
                 classe_abc.percentual_acumulado = percentual_acumulado
                 casados += 1
             else:
-                alias = RazaoSocialAlias.query.filter_by(razao_social_planilha=razao).first()
                 if alias:
                     alias.classe_pendente = classe
                     alias.total_vendas_pendente = total_vendas
