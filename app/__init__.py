@@ -1,9 +1,8 @@
-import hmac
 import os
 import secrets
 import warnings
 
-from flask import Flask, Response, flash, redirect, request, url_for
+from flask import Flask, flash, redirect, request, session, url_for
 
 from app.extensions import db, migrate
 from app.utils.formatters import formatar_cnpj, formatar_moeda, link_whatsapp
@@ -60,20 +59,16 @@ def create_app(config_overrides=None):
                 template_folder=os.path.join(os.path.dirname(os.path.dirname(__file__)), 'templates'),
                 static_folder=os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static'))
     app.secret_key = _resolver_secret_key()
-    auth_usuario, auth_senha = _resolver_credenciais_auth()
+    _resolver_credenciais_auth()  # só valida na subida que AUTH_USER/AUTH_PASSWORD existem
+
+    ENDPOINTS_PUBLICOS = {'auth.login', 'static'}
 
     @app.before_request
     def exigir_autenticacao():
-        auth = request.authorization
-        credencial_ok = (
-            auth is not None
-            and hmac.compare_digest(auth.username or '', auth_usuario)
-            and hmac.compare_digest(auth.password or '', auth_senha)
-        )
-        if not credencial_ok:
-            return Response(
-                'Autenticação necessária.', 401,
-                {'WWW-Authenticate': 'Basic realm="Sistema ID Safety"'})
+        if request.endpoint in ENDPOINTS_PUBLICOS:
+            return None
+        if not session.get('autenticado'):
+            return redirect(url_for('auth.login', next=request.path))
 
     basedir = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
     app.config['BASEDIR'] = basedir

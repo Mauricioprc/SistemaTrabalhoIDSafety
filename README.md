@@ -8,7 +8,7 @@ Painel interno de apoio a vendas/cobrança (Flask + SQLAlchemy + SQLite).
 |---|---|---|
 | `SECRET_KEY` | Sim (fora de dev) | Chave de sessão do Flask. Gere com `python -c "import secrets; print(secrets.token_hex(32))"`. Em dev (`FLASK_DEBUG=1`) é opcional — cai para uma chave aleatória gerada a cada restart. |
 | `FLASK_DEBUG` | Não (default `False`) | `1`/`true` liga o modo debug (reload automático, traceback interativo). **Nunca `1` em produção** — expõe execução de código arbitrário via o debugger do Werkzeug. |
-| `AUTH_USER` / `AUTH_PASSWORD` | Sim | Credencial única de HTTP Basic Auth que protege todas as rotas. |
+| `AUTH_USER` / `AUTH_PASSWORD` | Sim | Credencial única exigida na tela de login (`/login`) que protege todas as rotas. |
 | `PORT` | Não (default `5000`) | Porta do servidor de desenvolvimento (`run.py`). Ignorada em produção via WSGI. |
 
 ## Rodando em desenvolvimento (Windows/PowerShell)

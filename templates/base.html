@@ -39,7 +39,9 @@
             <a href="/backup" class="user-profile text-decoration-none" title="Fazer Backup do Sistema">
                 <i class="bi bi-cloud-download-fill"></i>
             </a>
-            <div class="user-profile bg-dark text-white" title="Perfil"><i class="bi bi-person-fill"></i></div>
+            <a href="{{ url_for('auth.logout') }}" class="user-profile text-decoration-none" title="Sair">
+                <i class="bi bi-box-arrow-right"></i>
+            </a>
         </div>
       </div>
     </nav>
