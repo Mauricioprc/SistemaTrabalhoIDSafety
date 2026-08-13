@@ -6,7 +6,7 @@ from sqlalchemy.orm import joinedload, selectinload
 from app.extensions import db
 from app.models import Cliente, Proposta
 from app.services.importacao.propostas import importar_propostas
-from app.services.painel_acao import montar_painel
+from app.services.painel_acao import montar_painel, resumo_propostas_paradas
 from app.services.priorizacao import CRITICO_DIAS, recalcular_todos
 
 bp = Blueprint('cobranca', __name__)
@@ -42,8 +42,10 @@ def cobranca():
     ).all()
 
     contagens, linhas = montar_painel(todos_clientes, filtro, q)
+    resumo_paradas = resumo_propostas_paradas(todos_clientes)
 
     return render_template('clientes_lista.html', linhas=linhas, contagens=contagens,
+                           resumo_paradas=resumo_paradas,
                            q=q, filtro=filtro, critico_dias=CRITICO_DIAS)
 
 

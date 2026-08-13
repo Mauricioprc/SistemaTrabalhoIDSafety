@@ -19,6 +19,45 @@ DIAS_CLIENTE_NOVO = 45
 # ao mesmo tempo — decide qual badge/motivo aparece na lista unificada.
 ORDEM_CATEGORIAS = ('prioridade', 'sem_comprar', 'proposta_parada', 'novo')
 
+# Faixas de dias parado para o resumo/filtro dentro de "proposta parada".
+# Intervalos semiabertos [minimo, maximo) — 15 e 30 e 60 caem na faixa de
+# cima, não na de baixo (ex: exatos 30 dias entra em "30-60", não "15-30").
+FAIXAS_DIAS_PARADO = (
+    ('parada_0_15', '0–15 dias', 0, 15),
+    ('parada_15_30', '15–30 dias', 15, 30),
+    ('parada_30_60', '30–60 dias', 30, 60),
+    ('parada_60_mais', '60+ dias', 60, None),
+)
+CHAVES_FAIXAS_DIAS_PARADO = frozenset(chave for chave, *_ in FAIXAS_DIAS_PARADO)
+
+
+def _faixa_de_dias_parado(dias):
+    for chave, _rotulo, minimo, maximo in FAIXAS_DIAS_PARADO:
+        if dias >= minimo and (maximo is None or dias < maximo):
+            return chave
+    return None  # não deveria acontecer com as faixas acima (cobrem 0 a infinito)
+
+
+def resumo_propostas_paradas(clientes):
+    """Agregado pro topo da tela de cobrança: valor total pendente + quebra
+    por faixa de dias parado (contagem de clientes e soma de valor_pendente
+    em cada uma). Só considera clientes com valor_pendente > 0 — quem está
+    em dia não entra em nenhuma faixa."""
+    com_pendente = [c for c in clientes if c.valor_pendente > 0]
+    total_pendente = sum(c.valor_pendente for c in com_pendente)
+
+    faixas = []
+    for chave, rotulo, _minimo, _maximo in FAIXAS_DIAS_PARADO:
+        do_grupo = [c for c in com_pendente if _faixa_de_dias_parado(c.dias_parado_maximo) == chave]
+        faixas.append({
+            'chave': chave,
+            'rotulo': rotulo,
+            'qtd': len(do_grupo),
+            'valor': sum(c.valor_pendente for c in do_grupo),
+        })
+
+    return {'total_pendente': total_pendente, 'faixas': faixas}
+
 
 def _dias_esperado_excedido(cliente):
     retencao = cliente.indicador_retencao
@@ -105,6 +144,11 @@ def montar_painel(clientes, filtro, q):
 
     if filtro in ORDEM_CATEGORIAS:
         linhas = [_linha(c, filtro) for c in clientes if filtro in categorias_por_cliente[c.id]]
+    elif filtro in CHAVES_FAIXAS_DIAS_PARADO:
+        # Sub-filtro de "proposta parada" por faixa de dias — mesma
+        # categoria pra badge/motivo/ordenação, só muda quem entra na lista.
+        linhas = [_linha(c, 'proposta_parada') for c in clientes
+                  if c.valor_pendente > 0 and _faixa_de_dias_parado(c.dias_parado_maximo) == filtro]
     else:
         linhas = []
         for cliente in clientes:
@@ -114,9 +158,22 @@ def montar_painel(clientes, filtro, q):
             categoria_principal = next(cat for cat in ORDEM_CATEGORIAS if cat in categorias)
             linhas.append(_linha(cliente, categoria_principal))
 
-    linhas.sort(key=lambda linha: -(linha['cliente'].score_prioridade or 0))
+    linhas.sort(key=_chave_ordenacao)
 
     return contagens, linhas
+
+
+def _chave_ordenacao(linha):
+    """Ordenação padrão: score_prioridade (maior primeiro) — é urgência
+    geral de risco. Mas dentro de "proposta parada" isso não faz sentido: o
+    que importa lá é dinheiro parado ponderado pelo tempo parado
+    (valor_pendente * dias_parado_maximo), não o risco geral do cliente —
+    um cliente pode ter score baixo e ainda assim ser a maior dívida parada
+    há mais tempo, e é isso que essa categoria precisa destacar primeiro."""
+    cliente = linha['cliente']
+    if linha['categoria'] == 'proposta_parada':
+        return -(cliente.valor_pendente * cliente.dias_parado_maximo)
+    return -(cliente.score_prioridade or 0)
 
 
 def _linha(cliente, categoria):
