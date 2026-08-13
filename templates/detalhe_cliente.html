@@ -105,9 +105,11 @@
             <div class="card-header bg-light fw-bold text-muted small border-bottom d-flex justify-content-between align-items-center">
                 <span>PROPOSTAS ({{ cliente.propostas | length }}) — ordenadas por tempo parado</span>
                 {% if propostas_pendentes | length > 1 %}
-                <a href="/cliente/{{ cliente.id }}/propostas/status/Negociando" class="btn btn-sm btn-outline-info">
-                    <i class="bi bi-people-fill me-1"></i> Marcar todas como Negociando
-                </a>
+                <form action="/cliente/{{ cliente.id }}/propostas/status/Negociando" method="POST" class="d-inline">
+                    <button type="submit" class="btn btn-sm btn-outline-info">
+                        <i class="bi bi-people-fill me-1"></i> Marcar todas como Negociando
+                    </button>
+                </form>
                 {% endif %}
             </div>
             <div class="card-body">
@@ -130,8 +132,12 @@
                                 </div>
                                 <span class="badge {{ classe_status }} mt-2">{{ p.status_cobranca }}</span>
                                 <div class="btn-group btn-group-sm mt-2 w-100">
-                                    <a href="/proposta/{{ p.id }}/status/Negociando" class="btn btn-outline-info">Negociando</a>
-                                    <a href="/proposta/{{ p.id }}/status/Ok" class="btn btn-outline-success">Ok</a>
+                                    <form action="/proposta/{{ p.id }}/status/Negociando" method="POST" class="d-inline w-50">
+                                        <button type="submit" class="btn btn-outline-info w-100">Negociando</button>
+                                    </form>
+                                    <form action="/proposta/{{ p.id }}/status/Ok" method="POST" class="d-inline w-50">
+                                        <button type="submit" class="btn btn-outline-success w-100">Ok</button>
+                                    </form>
                                 </div>
                                 {% if p.email_aprov %}
                                 <a href="mailto:{{ p.email_aprov }}?subject=Proposta {{ p.numero_proposta }} Pendente - {{ cliente.razao_social }}" class="btn btn-sm btn-outline-secondary w-100 mt-1">

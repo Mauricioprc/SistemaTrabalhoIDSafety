@@ -40,7 +40,7 @@ def cobranca():
                            q=q, filtro=filtro, critico_dias=CRITICO_DIAS)
 
 
-@bp.route('/proposta/<int:id>/status/<status>')
+@bp.route('/proposta/<int:id>/status/<status>', methods=['POST'])
 def marcar_status_proposta(id, status):
     p = Proposta.query.get(id)
     if p:
@@ -51,7 +51,7 @@ def marcar_status_proposta(id, status):
     return redirect(request.referrer or url_for('cobranca.cobranca'))
 
 
-@bp.route('/cliente/<int:id>/propostas/status/<status>')
+@bp.route('/cliente/<int:id>/propostas/status/<status>', methods=['POST'])
 def marcar_status_propostas_lote(id, status):
     cliente = Cliente.query.get_or_404(id)
     atualizadas = 0

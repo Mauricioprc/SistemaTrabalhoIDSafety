@@ -1,8 +1,15 @@
 """Fixtures compartilhadas — banco de teste sempre em SQLite em memória,
 nunca o raizen_gestao.db de desenvolvimento."""
+import os
 from datetime import datetime, timedelta
 
 import pytest
+
+# create_app() exige SECRET_KEY (ou FLASK_DEBUG=1) — ver app/__init__.py.
+# setdefault: não pisa em valores reais se o ambiente já tiver algo definido.
+os.environ.setdefault('SECRET_KEY', 'chave-de-teste-nao-usar-em-producao')
+os.environ.setdefault('AUTH_USER', 'teste')
+os.environ.setdefault('AUTH_PASSWORD', 'teste')
 
 from app import create_app
 from app.extensions import db as _db
