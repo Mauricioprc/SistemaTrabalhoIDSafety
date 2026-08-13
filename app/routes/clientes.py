@@ -1,10 +1,32 @@
-from flask import Blueprint, render_template
+from flask import Blueprint, render_template, request
 from sqlalchemy.orm import joinedload, selectinload
 
 from app.models import Cliente, Unidade
 from app.services.priorizacao import CRITICO_DIAS, calcular_score
 
 bp = Blueprint('clientes', __name__)
+
+
+@bp.route('/clientes')
+def lista():
+    """Tabela geral com TODOS os clientes (611+) — densa, sem o filtro do
+    Painel de Ação (/cobranca). Esse é o cadastro completo; o painel é a
+    visão de "o que fazer agora" sobre um subconjunto dele."""
+    q = request.args.get('q', '')
+
+    consulta = Cliente.query.options(
+        selectinload(Cliente.propostas),
+        selectinload(Cliente.classes_abc),
+        selectinload(Cliente.notas_nps),
+    )
+    if q:
+        s = f'%{q}%'
+        consulta = consulta.filter(Cliente.razao_social.ilike(s) | Cliente.cnpj.like(s))
+
+    clientes = consulta.order_by(Cliente.score_prioridade.desc().nullslast(),
+                                 Cliente.razao_social.asc()).all()
+
+    return render_template('clientes_lista.html', clientes=clientes, q=q, critico_dias=CRITICO_DIAS)
 
 
 @bp.route('/cliente/<int:id>')

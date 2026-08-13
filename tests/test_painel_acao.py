@@ -1,7 +1,12 @@
 """resumo_propostas_paradas() e a ordenação específica da categoria
 'proposta_parada' (valor_pendente * dias_parado_maximo, não score_prioridade)."""
-from app.services.painel_acao import CHAVES_FAIXAS_DIAS_PARADO, montar_painel, resumo_propostas_paradas
-from tests.conftest import cria_cliente, cria_proposta, dias_atras
+from app.services.painel_acao import (
+    CHAVES_FAIXAS_DIAS_PARADO,
+    categorias_do_cliente,
+    montar_painel,
+    resumo_propostas_paradas,
+)
+from tests.conftest import cria_classe_abc, cria_cliente, cria_indicador_retencao, cria_proposta, dias_atras
 
 
 def test_resumo_propostas_paradas_agrupa_por_faixa_e_soma_valor(db):
@@ -93,3 +98,67 @@ def test_ordenacao_prioridade_continua_por_score(db):
     _contagens, linhas = montar_painel([score_baixo, score_alto], filtro='prioridade', q='')
 
     assert [linha['cliente'].id for linha in linhas] == [score_alto.id, score_baixo.id]
+
+
+# --- categoria "oportunidade" ---
+
+def test_oportunidade_classe_a_sem_risco_comprando_pouco_sem_proposta(db):
+    cliente = cria_cliente(db, cnpj='70000000001334')
+    cria_indicador_retencao(db, cliente, ira_cair=False, frequencia_compra='Mensal', dias_desde_ultimo_pedido=90)
+    cria_classe_abc(db, cliente, classe='A')
+    db.session.commit()
+
+    assert 'oportunidade' in categorias_do_cliente(cliente)
+
+
+def test_nao_e_oportunidade_se_ira_cair(db):
+    """Se já tem risco de queda sinalizado, é caso de prioridade/risco, não oportunidade."""
+    cliente = cria_cliente(db, cnpj='70000000001415')
+    cria_indicador_retencao(db, cliente, ira_cair=True, frequencia_compra='Mensal', dias_desde_ultimo_pedido=90)
+    cria_classe_abc(db, cliente, classe='A')
+    db.session.commit()
+
+    assert 'oportunidade' not in categorias_do_cliente(cliente)
+
+
+def test_nao_e_oportunidade_se_classe_c(db):
+    cliente = cria_cliente(db, cnpj='70000000001496')
+    cria_indicador_retencao(db, cliente, ira_cair=False, frequencia_compra='Mensal', dias_desde_ultimo_pedido=90)
+    cria_classe_abc(db, cliente, classe='C')
+    db.session.commit()
+
+    assert 'oportunidade' not in categorias_do_cliente(cliente)
+
+
+def test_nao_e_oportunidade_se_tem_proposta_pendente(db):
+    """Com proposta pendente em aberto, o caso já é coberto por outra categoria."""
+    cliente = cria_cliente(db, cnpj='70000000001577')
+    cria_indicador_retencao(db, cliente, ira_cair=False, frequencia_compra='Mensal', dias_desde_ultimo_pedido=90)
+    cria_classe_abc(db, cliente, classe='B')
+    cria_proposta(db, cliente, status_cobranca='Pendente', data_criacao_proposta=dias_atras(1))
+    db.session.commit()
+
+    assert 'oportunidade' not in categorias_do_cliente(cliente)
+
+
+def test_nao_e_oportunidade_se_dias_dentro_do_esperado(db):
+    cliente = cria_cliente(db, cnpj='70000000001658')
+    cria_indicador_retencao(db, cliente, ira_cair=False, frequencia_compra='Mensal', dias_desde_ultimo_pedido=10)
+    cria_classe_abc(db, cliente, classe='A')
+    db.session.commit()
+
+    assert 'oportunidade' not in categorias_do_cliente(cliente)
+
+
+def test_badge_oportunidade_usa_cor_azul_distinta_de_risco(db):
+    from app.services.painel_acao import badge_e_motivo
+
+    cliente = cria_cliente(db, cnpj='70000000001739')
+    cria_indicador_retencao(db, cliente, ira_cair=False, frequencia_compra='Mensal', dias_desde_ultimo_pedido=90)
+    cria_classe_abc(db, cliente, classe='B')
+    db.session.commit()
+
+    classe_badge, _valor, motivo, _motivos = badge_e_motivo(cliente, 'oportunidade')
+    assert classe_badge == 'badge-soft-info'
+    assert classe_badge not in ('badge-soft-danger', 'badge-soft-warning', 'badge-soft-accent')
+    assert 'Classe B' in motivo

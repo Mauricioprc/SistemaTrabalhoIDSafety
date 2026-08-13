@@ -20,7 +20,9 @@
     --text-accent: var(--accent);
     --bg-success: #d1e7dd;
     --text-success: #146c43;
-    
+    --bg-info: #cfe2ff;
+    --text-info: #084298;
+
     --shadow-sm: 0 2px 4px rgba(0,0,0,0.05);
     --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
@@ -109,6 +111,21 @@ body {
 .badge-soft-warning { background-color: var(--bg-warning); color: var(--text-warning); }
 .badge-soft-accent { background-color: var(--bg-accent); color: var(--text-accent); }
 .badge-soft-success { background-color: var(--bg-success); color: var(--text-success); }
+/* Azul: sinal de oportunidade/chance de venda -- deliberadamente distinto
+   de danger/warning/accent, que são todos sinais de risco/problema. */
+.badge-soft-info { background-color: var(--bg-info); color: var(--text-info); }
+
+/* Ícones de tendência (setas ao lado de Classe ABC / NPS) */
+.tendencia-subindo { color: var(--text-success); }
+.tendencia-caindo { color: var(--text-danger); }
+.tendencia-estavel { color: var(--text-muted); }
+
+/* Grid de cards do Painel de Ação */
+.painel-acao-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1rem;
+}
 
 /* Faixa de alerta do motivo de prioridade no Cliente 360 */
 .faixa-alerta-danger { background-color: var(--bg-danger); color: var(--text-danger); border-radius: var(--radius); }

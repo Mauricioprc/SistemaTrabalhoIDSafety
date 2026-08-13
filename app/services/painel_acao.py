@@ -17,7 +17,15 @@ DIAS_CLIENTE_NOVO = 45
 
 # Ordem de prioridade quando um cliente se encaixa em mais de uma categoria
 # ao mesmo tempo — decide qual badge/motivo aparece na lista unificada.
-ORDEM_CATEGORIAS = ('prioridade', 'sem_comprar', 'proposta_parada', 'novo')
+# "oportunidade" fica por último de propósito: é o único sinal positivo (chance
+# de venda, não problema/risco), então só vira o motivo principal quando o
+# cliente não se encaixa em nenhuma categoria de risco.
+ORDEM_CATEGORIAS = ('prioridade', 'sem_comprar', 'proposta_parada', 'oportunidade', 'novo')
+
+# Classes ABC consideradas "valiosas o suficiente" pra virar oportunidade de
+# reengajamento quando o cliente esfria — mesmo corte usado no score de
+# priorização (PESO_RISCO_QUEDA_CLASSE_AB_COM_PENDENTE).
+CLASSES_ABC_OPORTUNIDADE = ('A', 'B')
 
 # Faixas de dias parado para o resumo/filtro dentro de "proposta parada".
 # Intervalos semiabertos [minimo, maximo) — 15 e 30 e 60 caem na faixa de
@@ -79,9 +87,31 @@ def categorias_do_cliente(cliente):
         categorias.add('sem_comprar')
     if cliente.dias_parado_maximo > CRITICO_DIAS:
         categorias.add('proposta_parada')
+    if _e_oportunidade(cliente):
+        categorias.add('oportunidade')
     if cliente_novo(cliente):
         categorias.add('novo')
     return categorias
+
+
+def _e_oportunidade(cliente):
+    """Cliente Classe A/B, sem risco de queda sinalizado, mas comprando
+    menos que o esperado pra frequência dele E sem nenhuma proposta pendente
+    em aberto — hoje esse cliente não cai em nenhuma categoria (não é
+    "problema" o suficiente pra sem_comprar sozinho chamar atenção, e como
+    não tem proposta parada também não aparece em proposta_parada). É uma
+    chance de reengajamento ativo, não um risco — por isso a cor é azul
+    (badge-soft-info), deliberadamente distinta de vermelho/laranja/verde."""
+    retencao = cliente.indicador_retencao
+    if not retencao or retencao.ira_cair:
+        return False
+    classe_atual = cliente.classe_abc_atual
+    classe = classe_atual.classe if classe_atual else None
+    if classe not in CLASSES_ABC_OPORTUNIDADE:
+        return False
+    if not _dias_esperado_excedido(cliente):
+        return False
+    return cliente.qtd_pendentes == 0
 
 
 def cliente_novo(cliente):
@@ -116,6 +146,14 @@ def badge_e_motivo(cliente, categoria):
     if categoria == 'proposta_parada':
         dias = cliente.dias_parado_maximo
         return 'badge-soft-accent', cliente.valor_pendente, f'Proposta pendente parada há {dias} dias', None
+
+    if categoria == 'oportunidade':
+        info = _dias_esperado_excedido(cliente)
+        dias, esperado = info if info else (cliente.indicador_retencao.dias_desde_ultimo_pedido, '—')
+        classe = cliente.classe_abc_atual.classe if cliente.classe_abc_atual else '—'
+        return ('badge-soft-info', f'{dias}d',
+                f'Classe {classe} comprando abaixo do esperado ({dias}d, esperado até {esperado}d) '
+                'e sem proposta em aberto — vale contato ativo', None)
 
     if categoria == 'novo':
         return 'badge-light', 'Novo', 'Cliente novo — nenhuma proposta registrada ainda', None

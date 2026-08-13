@@ -44,7 +44,7 @@ def cobranca():
     contagens, linhas = montar_painel(todos_clientes, filtro, q)
     resumo_paradas = resumo_propostas_paradas(todos_clientes)
 
-    return render_template('clientes_lista.html', linhas=linhas, contagens=contagens,
+    return render_template('painel_acao.html', linhas=linhas, contagens=contagens,
                            resumo_paradas=resumo_paradas,
                            q=q, filtro=filtro, critico_dias=CRITICO_DIAS)
 

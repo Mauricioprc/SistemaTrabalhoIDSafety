@@ -4,148 +4,87 @@
 
 <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
     <div>
-        <h1 class="fw-bold text-primary-custom">Painel de ação</h1>
-        <p class="text-muted mb-0">O que fazer agora, e por quê — priorizado automaticamente.</p>
-    </div>
-    <button class="btn btn-primary-custom shadow-sm btn-lg" data-bs-toggle="modal" data-bs-target="#modalUpload">
-        <i class="bi bi-file-earmark-spreadsheet me-2"></i> Importar Planilha
-    </button>
-</div>
-
-{% set categorias = [
-    ('prioridade', 'Prioridade alta', 'bi-lightning-charge-fill', 'badge-soft-danger'),
-    ('sem_comprar', 'Sem comprar', 'bi-hourglass-split', 'badge-soft-warning'),
-    ('proposta_parada', 'Proposta parada', 'bi-file-earmark-text', 'badge-soft-accent'),
-    ('novo', 'Clientes novos', 'bi-person-plus-fill', 'badge-light'),
-] %}
-
-<!-- RESUMO DE PROPOSTAS PARADAS -->
-<div class="card border-0 shadow-sm mb-4" style="border-radius: 12px;">
-    <div class="card-body p-3">
-        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
-            <div class="small text-uppercase fw-bold text-muted">Total pendente (dinheiro parado)</div>
-            <div class="fs-4 fw-bold text-dark">{{ resumo_paradas.total_pendente | moeda }}</div>
-        </div>
-        <div class="d-flex flex-wrap gap-2">
-            {% for faixa in resumo_paradas.faixas %}
-            <a href="{{ url_for('cobranca.cobranca', filtro=faixa.chave, q=q) }}"
-               class="btn btn-sm {{ 'btn-primary-custom' if filtro == faixa.chave else 'btn-outline-secondary' }} d-flex align-items-center gap-2">
-                <span>{{ faixa.rotulo }}</span>
-                <span class="badge badge-light border">{{ faixa.qtd }}</span>
-                <span class="fw-normal">{{ faixa.valor | moeda }}</span>
-            </a>
-            {% endfor %}
-        </div>
-    </div>
-</div>
-
-<!-- CARDS DE RESUMO -->
-<div class="row g-3 mb-4">
-    {% for chave, rotulo, icone, classe in categorias %}
-    <div class="col-6 col-md-3">
-        <a href="{{ url_for('cobranca.cobranca', filtro=chave, q=q) }}" class="text-decoration-none">
-            <div class="card border shadow-sm h-100 {{ 'border-primary-custom' if filtro == chave }}" style="border-radius: 12px;">
-                <div class="card-body p-3">
-                    <div class="small text-uppercase fw-bold text-muted"><i class="bi {{ icone }} me-1"></i>{{ rotulo }}</div>
-                    <div class="fs-3 fw-bold text-dark">{{ contagens[chave] }}</div>
-                </div>
-            </div>
-        </a>
-    </div>
-    {% endfor %}
-</div>
-
-<!-- FILTROS -->
-<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-    <div class="d-flex gap-2 flex-wrap">
-        <a class="btn btn-sm rounded-pill fw-bold px-3 {{ 'btn-primary-custom' if not filtro else 'btn-outline-secondary' }}"
-           href="{{ url_for('cobranca.cobranca', q=q) }}">Todos</a>
-        {% for chave, rotulo, icone, classe in categorias %}
-        <a class="btn btn-sm rounded-pill fw-bold px-3 {{ 'btn-primary-custom' if filtro == chave else 'btn-outline-secondary' }}"
-           href="{{ url_for('cobranca.cobranca', filtro=chave, q=q) }}">
-            {{ rotulo }}
-        </a>
-        {% endfor %}
+        <h1 class="fw-bold text-primary-custom">Todos os clientes</h1>
+        <p class="text-muted mb-0">Cadastro completo ({{ clientes | length }}) — para o que fazer agora, veja o <a href="{{ url_for('cobranca.cobranca') }}">Painel de ação</a>.</p>
     </div>
     <form method="GET" class="d-flex">
-        <input type="hidden" name="filtro" value="{{ filtro }}">
-        <input type="text" name="q" class="form-control form-control-sm" placeholder="Buscar cliente/CNPJ..." value="{{ q }}" style="width: 220px;">
+        <input type="text" name="q" class="form-control form-control-sm" placeholder="Buscar cliente/CNPJ..." value="{{ q }}" style="width: 260px;">
     </form>
 </div>
 
-<!-- LISTA UNIFICADA -->
-<div class="d-flex flex-column gap-2">
-    {% for linha in linhas %}
-    {% set cliente = linha.cliente %}
-    <div class="card border shadow-sm" style="border-radius: 10px;">
-        <div class="card-body py-3 d-flex align-items-center flex-wrap gap-3">
-            <div style="min-width: 100px;">
-                {% if linha.categoria == 'proposta_parada' %}
-                    <span class="badge {{ linha.classe_badge }}">{{ linha.valor_badge | moeda }}</span>
+<div class="card border-0 shadow-sm" style="border-radius: 12px;">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Cliente</th>
+                    <th>Status</th>
+                    <th>Dias parado</th>
+                    <th>Valor pendente</th>
+                    <th>Classe ABC</th>
+                    <th>NPS</th>
+                    <th>Score</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cliente in clientes %}
+                {% set dias = cliente.dias_parado_maximo %}
+                {% set classe_status = {'Pendente': 'badge-soft-warning', 'Negociando': 'badge-soft-accent', 'Ok': 'badge-soft-success'}[cliente.status_cobranca] %}
+                <tr>
+                    <td>
+                        <div class="fw-bold text-dark">{{ cliente.razao_social }}</div>
+                        <span class="badge badge-light border">{{ cliente.cnpj | cnpj }}</span>
+                    </td>
+                    <td><span class="badge {{ classe_status }}">{{ cliente.status_cobranca }}</span></td>
+                    <td>
+                        {% if dias > 0 %}
+                        <span class="badge {{ 'badge-soft-danger' if dias > critico_dias else 'badge-soft-warning' }}">{{ dias }}d</span>
+                        {% else %}
+                        <span class="text-muted small">—</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ cliente.valor_pendente | moeda if cliente.valor_pendente > 0 else '—' }}</td>
+                    <td>
+                        {% if cliente.classe_abc_atual %}
+                        Classe {{ cliente.classe_abc_atual.classe }}
+                        {% if cliente.tendencia_classe_abc == 'subindo' %}<i class="bi bi-arrow-up-short tendencia-subindo" title="Melhorou em relação ao trimestre anterior"></i>
+                        {% elif cliente.tendencia_classe_abc == 'caindo' %}<i class="bi bi-arrow-down-short tendencia-caindo" title="Piorou em relação ao trimestre anterior"></i>
+                        {% elif cliente.tendencia_classe_abc == 'estavel' %}<i class="bi bi-arrow-right-short tendencia-estavel" title="Estável em relação ao trimestre anterior"></i>
+                        {% endif %}
+                        {% else %}
+                        <span class="text-muted small">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if cliente.nota_nps_mais_recente %}
+                        {{ cliente.nota_nps_mais_recente.nota }}
+                        {% if cliente.tendencia_nps == 'subindo' %}<i class="bi bi-arrow-up-short tendencia-subindo" title="Subiu em relação à nota anterior"></i>
+                        {% elif cliente.tendencia_nps == 'caindo' %}<i class="bi bi-arrow-down-short tendencia-caindo" title="Caiu em relação à nota anterior"></i>
+                        {% elif cliente.tendencia_nps == 'estavel' %}<i class="bi bi-arrow-right-short tendencia-estavel" title="Estável em relação à nota anterior"></i>
+                        {% endif %}
+                        {% else %}
+                        <span class="text-muted small">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if cliente.score_prioridade %}
+                        <span class="badge {{ 'badge-soft-danger' if cliente.score_prioridade >= 100 else ('badge-soft-warning' if cliente.score_prioridade >= 50 else 'badge-light') }}">{{ cliente.score_prioridade }}</span>
+                        {% else %}
+                        <span class="text-muted small">0</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="/cliente/{{ cliente.id }}" class="btn btn-sm btn-outline-primary-custom fw-bold">Ver</a>
+                    </td>
+                </tr>
                 {% else %}
-                    <span class="badge {{ linha.classe_badge }}">{{ linha.valor_badge }}</span>
-                {% endif %}
-            </div>
-
-            <div style="flex: 1 1 260px;">
-                <div class="fw-bold text-dark">{{ cliente.razao_social }}</div>
-                <div class="text-muted small">
-                    <span class="badge badge-light border me-1">{{ cliente.cnpj | cnpj }}</span>
-                    {% if not linha.motivos %}{{ linha.motivo }}{% endif %}
-                </div>
-                {% if linha.motivos %}
-                <div class="mt-1 d-flex flex-wrap gap-1">
-                    {% for motivo in linha.motivos %}
-                    <span class="badge {{ motivo.classe_css }} fw-normal">{{ motivo.texto }}</span>
-                    {% endfor %}
-                </div>
-                {% endif %}
-            </div>
-
-            <div class="d-flex gap-1">
-                {% if cliente.telefone %}
-                <a href="{{ cliente.telefone | whatsapp }}" target="_blank" class="btn btn-sm btn-outline-success" title="WhatsApp">
-                    <i class="bi bi-whatsapp"></i>
-                </a>
-                {% endif %}
-                <a href="/cliente/{{ cliente.id }}" class="btn btn-sm btn-outline-primary-custom fw-bold">
-                    {% if linha.categoria == 'novo' %}
-                        Fazer primeiro contato <i class="bi bi-arrow-right ms-1"></i>
-                    {% else %}
-                        Ver cliente <i class="bi bi-arrow-right ms-1"></i>
-                    {% endif %}
-                </a>
-            </div>
-        </div>
-    </div>
-    {% else %}
-    <div class="card border-0 shadow-sm text-center py-5 text-muted" style="border-radius: 12px;">
-        Nenhum cliente encontrado para este filtro.
-    </div>
-    {% endfor %}
-</div>
-
-<div class="modal fade" id="modalUpload" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header bg-primary-custom text-white">
-                <h5 class="modal-title fw-bold">Atualizar Base de Cobrança</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <form action="/cobranca" method="POST" enctype="multipart/form-data">
-                <div class="modal-body p-4 text-center">
-                    <div class="mb-3">
-                        <i class="bi bi-cloud-arrow-up text-primary fs-1 opacity-50"></i>
-                    </div>
-                    <p class="text-muted mb-4">Selecione a planilha do ERP para atualizar os valores pendentes.</p>
-                    <input type="file" name="planilha" class="form-control" accept=".csv, .xlsx" required>
-                </div>
-                <div class="modal-footer bg-light border-0">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary-custom">Processar Arquivo</button>
-                </div>
-            </form>
-        </div>
+                <tr>
+                    <td colspan="8" class="text-center text-muted py-5">Nenhum cliente encontrado.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 </div>
 
