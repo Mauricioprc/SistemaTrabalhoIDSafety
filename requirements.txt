@@ -4,3 +4,4 @@ flask-migrate
 pandas
 openpyxl
 pytest
+python-dotenv

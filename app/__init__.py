@@ -2,10 +2,18 @@ import os
 import secrets
 import warnings
 
+from dotenv import load_dotenv
 from flask import Flask, flash, redirect, request, session, url_for
 
 from app.extensions import db, migrate
 from app.utils.formatters import formatar_cnpj, formatar_moeda, link_whatsapp
+
+# Carrega variáveis de app/../.env se o arquivo existir (dev local). Em
+# produção normalmente as variáveis já vêm do ambiente real (painel do
+# PythonAnywhere, systemd, etc.) — load_dotenv() não sobrescreve o que já
+# estiver setado no processo, então isso é seguro nos dois casos. Se o
+# arquivo não existir, não faz nada (sem erro).
+load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env'))
 
 
 def _resolver_credenciais_auth():

@@ -11,24 +11,29 @@ Painel interno de apoio a vendas/cobrança (Flask + SQLAlchemy + SQLite).
 | `AUTH_USER` / `AUTH_PASSWORD` | Sim | Credencial única exigida na tela de login (`/login`) que protege todas as rotas. |
 | `PORT` | Não (default `5000`) | Porta do servidor de desenvolvimento (`run.py`). Ignorada em produção via WSGI. |
 
-## Rodando em desenvolvimento (Windows/PowerShell)
+## Rodando em desenvolvimento
+
+Copie `.env.example` para `.env` e preencha (`AUTH_USER`/`AUTH_PASSWORD` pelo
+menos — `SECRET_KEY` pode ficar em branco em dev, o app gera uma sozinha e
+avisa no console). O `.env` é carregado automaticamente pelo `python-dotenv`
+e **nunca é commitado** (está no `.gitignore`).
+
+```powershell
+py run.py
+```
+
+```bash
+python run.py
+```
+
+Se preferir não usar `.env`, dá pra setar as variáveis direto no terminal
+(o `.env`, se existir, nunca sobrescreve o que já estiver no ambiente):
 
 ```powershell
 $env:FLASK_DEBUG = "1"
 $env:AUTH_USER = "admin"
 $env:AUTH_PASSWORD = "troque-isso"
 py run.py
-```
-
-`SECRET_KEY` pode ficar de fora em dev — o app gera uma automaticamente e avisa no console. Se quiser fixar (pra sessões sobreviverem a um reload), defina também `$env:SECRET_KEY`.
-
-## Rodando em desenvolvimento (bash/Linux/macOS)
-
-```bash
-export FLASK_DEBUG=1
-export AUTH_USER=admin
-export AUTH_PASSWORD=troque-isso
-python run.py
 ```
 
 ## Rodando em produção
