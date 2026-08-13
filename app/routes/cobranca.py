@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 from sqlalchemy.orm import joinedload, selectinload
 
@@ -45,6 +47,7 @@ def marcar_status_proposta(id, status):
     p = Proposta.query.get(id)
     if p:
         p.status_cobranca = status
+        p.data_ultima_mudanca_status = datetime.utcnow()
         db.session.commit()
         recalcular_todos()
         flash(f'Proposta #{p.numero_proposta}: {status}.', 'info')
@@ -55,9 +58,11 @@ def marcar_status_proposta(id, status):
 def marcar_status_propostas_lote(id, status):
     cliente = Cliente.query.get_or_404(id)
     atualizadas = 0
+    agora = datetime.utcnow()
     for p in cliente.propostas:
         if p.status_cobranca == 'Pendente':
             p.status_cobranca = status
+            p.data_ultima_mudanca_status = agora
             atualizadas += 1
     db.session.commit()
     recalcular_todos()

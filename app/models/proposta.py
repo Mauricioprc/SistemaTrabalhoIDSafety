@@ -21,6 +21,11 @@ class Proposta(db.Model):
     valor = db.Column(db.Float, default=0.0)
     data_criacao_proposta = db.Column(db.DateTime)
     status_cobranca = db.Column(db.String(50), default='Pendente')  # Pendente / Negociando / Ok
+    # Atualizada toda vez que status_cobranca muda (ver marcar_status_proposta
+    # e marcar_status_propostas_lote em app/routes/cobranca.py). dias_parado
+    # conta a partir daqui, não da criação — senão uma proposta "Negociando"
+    # continuaria acumulando dias como se nunca tivesse sido tocada.
+    data_ultima_mudanca_status = db.Column(db.DateTime, nullable=True)
     contato = db.Column(db.String(100))
     celular = db.Column(db.String(20))
     telefone = db.Column(db.String(20))
@@ -32,6 +37,7 @@ class Proposta(db.Model):
 
     @property
     def dias_parado(self):
-        if not self.data_criacao_proposta:
+        referencia = self.data_ultima_mudanca_status or self.data_criacao_proposta
+        if not referencia:
             return 0
-        return (datetime.utcnow() - self.data_criacao_proposta).days
+        return (datetime.utcnow() - referencia).days
