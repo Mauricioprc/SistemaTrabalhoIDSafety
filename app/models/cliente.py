@@ -64,6 +64,37 @@ class Cliente(db.Model):
     def nota_nps_mais_recente(self):
         return self.notas_nps[0] if self.notas_nps else None
 
+    @property
+    def tendencia_nps(self):
+        """Compara as 2 notas mais recentes (notas_nps já vem ordenada por
+        importado_em desc). None com 0 ou 1 nota — não dá pra ter tendência."""
+        if len(self.notas_nps) < 2:
+            return None
+        mais_recente, anterior = self.notas_nps[0], self.notas_nps[1]
+        if mais_recente.nota > anterior.nota:
+            return 'subindo'
+        if mais_recente.nota < anterior.nota:
+            return 'caindo'
+        return 'estavel'
+
+    @property
+    def tendencia_classe_abc(self):
+        """Compara as 2 classificações ABC mais recentes (classes_abc já vem
+        ordenada por trimestre_referencia desc), na ordem A > B > C. None com
+        0 ou 1 classificação, ou se alguma classe for um valor inesperado."""
+        if len(self.classes_abc) < 2:
+            return None
+        ordem = {'A': 3, 'B': 2, 'C': 1}
+        rank_atual = ordem.get(self.classes_abc[0].classe)
+        rank_anterior = ordem.get(self.classes_abc[1].classe)
+        if rank_atual is None or rank_anterior is None:
+            return None
+        if rank_atual > rank_anterior:
+            return 'subindo'
+        if rank_atual < rank_anterior:
+            return 'caindo'
+        return 'estavel'
+
 
 class Contato(db.Model):
     id = db.Column(db.Integer, primary_key=True)

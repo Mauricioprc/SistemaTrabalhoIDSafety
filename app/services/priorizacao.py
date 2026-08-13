@@ -28,8 +28,42 @@ DIAS_ESPERADOS_POR_FREQUENCIA = {
     'Anual': 400,
 }
 
+SEM_SINAIS_DE_RISCO = 'Sem sinais de risco identificados'
 
-def calcular_score(cliente: Cliente):
+# Classe CSS (badge-soft-*, já definida em static/style.css) por tipo de
+# motivo — decidida aqui, não no template, pra manter lógica de negócio fora
+# do Jinja (ver detalhe_cliente.html/clientes_lista.html, que só renderizam).
+CLASSE_CSS_POR_TIPO_MOTIVO = {
+    'risco_queda': 'badge-soft-danger',
+    'nps_baixo': 'badge-soft-warning',
+    'atraso_frequencia': 'badge-soft-warning',
+    'proposta_critica': 'badge-soft-accent',
+}
+
+
+class ScoreResultado:
+    """Resultado de calcular_score(): score numérico + lista estruturada de
+    motivos (cada um {'tipo', 'texto', 'classe_css'}). `motivo_prioridade` é
+    a concatenação em texto único, derivada da lista — mantida por
+    compatibilidade com quem só quer o texto pronto (ex: a coluna
+    Cliente.motivo_prioridade, que continua sendo uma string simples)."""
+
+    def __init__(self, score, motivos):
+        self.score = score
+        self.motivos = motivos
+
+    @property
+    def motivo_prioridade(self):
+        if not self.motivos:
+            return SEM_SINAIS_DE_RISCO
+        return '; '.join(m['texto'] for m in self.motivos)
+
+
+def _motivo(tipo, texto):
+    return {'tipo': tipo, 'texto': texto, 'classe_css': CLASSE_CSS_POR_TIPO_MOTIVO[tipo]}
+
+
+def calcular_score(cliente: Cliente) -> ScoreResultado:
     score = 0
     motivos = []
 
@@ -42,28 +76,28 @@ def calcular_score(cliente: Cliente):
 
     if retencao and retencao.ira_cair and classe in ('A', 'B') and tem_proposta_pendente:
         score += PESO_RISCO_QUEDA_CLASSE_AB_COM_PENDENTE
-        motivos.append(f'Classe {classe} + risco de queda + proposta pendente')
+        motivos.append(_motivo('risco_queda', f'Classe {classe} + risco de queda + proposta pendente'))
 
     if nota_recente and nota_recente.nota <= NPS_NOTA_BAIXA and classe == 'A':
         score += PESO_ALERTA_NPS_BAIXO_CLASSE_A
-        motivos.append(f'Alerta: nota NPS {nota_recente.nota} em cliente Classe A')
+        motivos.append(_motivo('nps_baixo', f'Alerta: nota NPS {nota_recente.nota} em cliente Classe A'))
 
     if retencao and retencao.frequencia_compra in DIAS_ESPERADOS_POR_FREQUENCIA:
         esperado = DIAS_ESPERADOS_POR_FREQUENCIA[retencao.frequencia_compra]
         dias = retencao.dias_desde_ultimo_pedido or 0
         if dias > esperado:
             score += PESO_ATRASO_FREQUENCIA_COMPRA
-            motivos.append(
+            motivos.append(_motivo(
+                'atraso_frequencia',
                 f'Sem pedido há {dias} dias (frequência {retencao.frequencia_compra}, '
-                f'esperado até {esperado} dias)')
+                f'esperado até {esperado} dias)'))
 
     dias_parado = cliente.dias_parado_maximo
     if dias_parado > CRITICO_DIAS:
         score += PESO_PROPOSTA_CRITICA
-        motivos.append(f'Proposta pendente parada há {dias_parado} dias')
+        motivos.append(_motivo('proposta_critica', f'Proposta pendente parada há {dias_parado} dias'))
 
-    motivo = '; '.join(motivos) if motivos else 'Sem sinais de risco identificados'
-    return score, motivo
+    return ScoreResultado(score, motivos)
 
 
 def recalcular_todos():
@@ -86,7 +120,7 @@ def recalcular_todos():
     ).all()
 
     for cliente in clientes:
-        score, motivo = calcular_score(cliente)
-        cliente.score_prioridade = score
-        cliente.motivo_prioridade = motivo
+        resultado = calcular_score(cliente)
+        cliente.score_prioridade = resultado.score
+        cliente.motivo_prioridade = resultado.motivo_prioridade
     db.session.commit()

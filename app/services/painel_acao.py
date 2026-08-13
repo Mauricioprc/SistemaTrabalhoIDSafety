@@ -7,7 +7,7 @@ IndicadorRetencao já existentes, na hora da requisição.
 """
 from datetime import datetime, timedelta
 
-from app.services.priorizacao import CRITICO_DIAS, DIAS_ESPERADOS_POR_FREQUENCIA
+from app.services.priorizacao import CRITICO_DIAS, DIAS_ESPERADOS_POR_FREQUENCIA, calcular_score
 
 SCORE_PRIORIDADE_ALTA = 50   # corte para o sinal "prioridade alta" no painel
 
@@ -59,25 +59,29 @@ def cliente_novo(cliente):
 
 
 def badge_e_motivo(cliente, categoria):
-    """Badge (classes CSS) e texto do motivo para uma categoria específica."""
+    """Badge (classes CSS), texto do motivo e (só pra 'prioridade') a lista
+    estruturada de motivos — {'tipo', 'texto', 'classe_css'} cada, vinda
+    direto de calcular_score(). As outras categorias têm um motivo único que
+    já é o suficiente pra explicar, sem precisar de detalhamento."""
     if categoria == 'prioridade':
         score = cliente.score_prioridade or 0
         classe_badge = 'badge-soft-danger' if score >= 100 else 'badge-soft-warning'
-        return classe_badge, str(score), (cliente.motivo_prioridade or 'Sinais de risco identificados')
+        resultado = calcular_score(cliente)
+        return classe_badge, str(score), resultado.motivo_prioridade, resultado.motivos
 
     if categoria == 'sem_comprar':
         info = _dias_esperado_excedido(cliente)
         dias, esperado = info if info else (cliente.indicador_retencao.dias_desde_ultimo_pedido, '—')
-        return 'badge-soft-warning', f'{dias}d', f'Sem pedido há {dias} dias (esperado até {esperado} dias)'
+        return 'badge-soft-warning', f'{dias}d', f'Sem pedido há {dias} dias (esperado até {esperado} dias)', None
 
     if categoria == 'proposta_parada':
         dias = cliente.dias_parado_maximo
-        return 'badge-soft-accent', cliente.valor_pendente, f'Proposta pendente parada há {dias} dias'
+        return 'badge-soft-accent', cliente.valor_pendente, f'Proposta pendente parada há {dias} dias', None
 
     if categoria == 'novo':
-        return 'badge-light', 'Novo', 'Cliente novo — nenhuma proposta registrada ainda'
+        return 'badge-light', 'Novo', 'Cliente novo — nenhuma proposta registrada ainda', None
 
-    return 'badge-light', '', ''
+    return 'badge-light', '', '', None
 
 
 def montar_painel(clientes, filtro, q):
@@ -116,11 +120,12 @@ def montar_painel(clientes, filtro, q):
 
 
 def _linha(cliente, categoria):
-    classe_badge, valor_badge, motivo = badge_e_motivo(cliente, categoria)
+    classe_badge, valor_badge, motivo, motivos = badge_e_motivo(cliente, categoria)
     return {
         'cliente': cliente,
         'categoria': categoria,
         'classe_badge': classe_badge,
         'valor_badge': valor_badge,
         'motivo': motivo,
+        'motivos': motivos,
     }

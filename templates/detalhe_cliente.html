@@ -37,7 +37,13 @@
             <h3 class="fw-bold text-dark mb-1">{{ cliente.razao_social }}</h3>
             <span class="badge badge-light border me-1">{{ cliente.cnpj | cnpj }}</span>
             {% if cliente.classe_abc_atual %}
-            <span class="badge badge-light border me-1">Classe {{ cliente.classe_abc_atual.classe }}</span>
+            <span class="badge badge-light border me-1">
+                Classe {{ cliente.classe_abc_atual.classe }}
+                {% if cliente.tendencia_classe_abc == 'subindo' %}<i class="bi bi-arrow-up-short text-success" title="Melhorou em relação ao trimestre anterior"></i>
+                {% elif cliente.tendencia_classe_abc == 'caindo' %}<i class="bi bi-arrow-down-short text-danger" title="Piorou em relação ao trimestre anterior"></i>
+                {% elif cliente.tendencia_classe_abc == 'estavel' %}<i class="bi bi-arrow-right-short text-muted" title="Estável em relação ao trimestre anterior"></i>
+                {% endif %}
+            </span>
             {% endif %}
             <span class="badge badge-light border">{{ cliente.vendedor or 'Sem representante' }}</span>
         </div>
@@ -50,10 +56,15 @@
     </div>
 </div>
 
-<!-- FAIXA DE ALERTA (motivo de prioridade) -->
-{% if cliente.motivo_prioridade and cliente.score_prioridade %}
-<div class="p-3 mb-3 fw-bold {{ 'faixa-alerta-danger' if cliente.score_prioridade >= 100 else 'faixa-alerta-warning' }}">
-    <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ cliente.motivo_prioridade }}
+<!-- FAIXA DE ALERTA (motivos de prioridade, um badge por motivo) -->
+{% if motivos_prioridade %}
+<div class="p-3 mb-3 {{ 'faixa-alerta-danger' if cliente.score_prioridade >= 100 else 'faixa-alerta-warning' }}">
+    <div class="fw-bold mb-2"><i class="bi bi-exclamation-triangle-fill me-2"></i>Por que este cliente está priorizado</div>
+    <div class="d-flex flex-wrap gap-2">
+        {% for motivo in motivos_prioridade %}
+        <span class="badge {{ motivo.classe_css }} fw-normal">{{ motivo.texto }}</span>
+        {% endfor %}
+    </div>
 </div>
 {% endif %}
 
@@ -92,6 +103,10 @@
                 {% set ultima_nota = notas_nps | first %}
                 <div class="fs-5 fw-bold {{ 'text-danger' if ultima_nota and ultima_nota.nota <= 6 else 'text-dark' }}">
                     {{ ultima_nota.nota if ultima_nota else '—' }}
+                    {% if cliente.tendencia_nps == 'subindo' %}<i class="bi bi-arrow-up-short text-success" title="Subiu em relação à nota anterior"></i>
+                    {% elif cliente.tendencia_nps == 'caindo' %}<i class="bi bi-arrow-down-short text-danger" title="Caiu em relação à nota anterior"></i>
+                    {% elif cliente.tendencia_nps == 'estavel' %}<i class="bi bi-arrow-right-short text-muted" title="Estável em relação à nota anterior"></i>
+                    {% endif %}
                 </div>
             </div>
         </div>

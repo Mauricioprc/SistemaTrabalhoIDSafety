@@ -34,6 +34,11 @@ def cobranca():
     todos_clientes = Cliente.query.options(
         selectinload(Cliente.propostas),
         joinedload(Cliente.indicador_retencao),
+        # classes_abc/notas_nps: badge_e_motivo() recalcula o score pra
+        # expor os motivos estruturados na categoria "prioridade" — sem
+        # eager loading isso vira N+1 de novo pros clientes dessa categoria.
+        selectinload(Cliente.classes_abc),
+        selectinload(Cliente.notas_nps),
     ).all()
 
     contagens, linhas = montar_painel(todos_clientes, filtro, q)
