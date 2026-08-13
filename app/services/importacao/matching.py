@@ -24,17 +24,37 @@ def normalizar_razao_social(texto: str) -> str:
     return txt
 
 
-def candidatos_para_razao_social(razao_social_planilha: str):
+def construir_indice_clientes():
+    """Monta {razao_normalizada: [Cliente, ...]} pra todos os clientes de
+    uma vez. Pré-carregar isso fora do loop de importação evita o
+    O(linhas × clientes) que Cliente.query.all() + normalização por linha
+    causava — a Curva ABC pode ter centenas de linhas e a base de clientes
+    também cresce, então isso virava caro rápido."""
+    indice = {}
+    for cliente in Cliente.query.all():
+        normalizada = normalizar_razao_social(cliente.razao_social)
+        indice.setdefault(normalizada, []).append(cliente)
+    return indice
+
+
+def candidatos_para_razao_social(razao_social_planilha: str, indice=None):
     """Retorna a lista de Cliente cuja razão social normalizada bate com a
     razão social informada (0, 1 ou vários — ambiguidade é real: a mesma
-    razão social pode ter múltiplos CNPJs/filiais cadastrados)."""
+    razão social pode ter múltiplos CNPJs/filiais cadastrados).
+
+    `indice` é o dict de construir_indice_clientes(); passe-o quando for
+    resolver várias razões sociais em sequência (ex: import de Curva ABC) pra
+    não requery+renormalizar tudo a cada chamada. Sem `indice`, monta um
+    novo na hora — comportamento de sempre, útil pra uma resolução avulsa."""
     normalizada = normalizar_razao_social(razao_social_planilha)
     if not normalizada:
         return []
-    return [c for c in Cliente.query.all() if normalizar_razao_social(c.razao_social) == normalizada]
+    if indice is None:
+        indice = construir_indice_clientes()
+    return list(indice.get(normalizada, []))
 
 
-def resolver_razao_social(razao_social_planilha: str):
+def resolver_razao_social(razao_social_planilha: str, indice=None):
     """Tenta casar a razão social da Curva ABC com um Cliente existente.
 
     Retorna (cliente_ou_none, alias). `cliente` só vem preenchido quando há
@@ -46,12 +66,15 @@ def resolver_razao_social(razao_social_planilha: str):
 
     Se já existir um RazaoSocialAlias para esse texto (resolvido manualmente
     ou não), usa o cliente_id já gravado nele.
+
+    `indice`: ver candidatos_para_razao_social — passe pra evitar requery
+    por linha ao processar um arquivo inteiro.
     """
     alias = RazaoSocialAlias.query.filter_by(razao_social_planilha=razao_social_planilha).first()
     if alias:
         return alias.cliente, alias
 
-    candidatos = candidatos_para_razao_social(razao_social_planilha)
+    candidatos = candidatos_para_razao_social(razao_social_planilha, indice=indice)
 
     if len(candidatos) == 1:
         cliente_encontrado = candidatos[0]

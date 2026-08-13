@@ -3,7 +3,7 @@ from datetime import datetime
 from app.extensions import db
 from app.models import ClasseABC
 from app.services.importacao.base import ImportadorBase, ResultadoImportacao
-from app.services.importacao.matching import resolver_razao_social
+from app.services.importacao.matching import construir_indice_clientes, resolver_razao_social
 from app.services.importacao.parsing import campo, parse_percentual, parse_valor_brl
 
 
@@ -39,6 +39,10 @@ class CurvaABCImportador(ImportadorBase):
         casados = 0
         sem_match = 0
 
+        # Pré-carrega e normaliza todos os Cliente uma única vez, fora do
+        # loop de linhas — ver comentário em matching.construir_indice_clientes.
+        indice_clientes = construir_indice_clientes()
+
         for i, linha in enumerate(linhas, start=2):
             erros_linha = self.validar(linha)
             if erros_linha:
@@ -46,7 +50,7 @@ class CurvaABCImportador(ImportadorBase):
                 continue
 
             razao = campo(linha, 'Razão Social')
-            cliente, alias = resolver_razao_social(razao)
+            cliente, alias = resolver_razao_social(razao, indice=indice_clientes)
 
             classe = campo(linha, 'Classe')
             total_vendas = parse_valor_brl(campo(linha, 'Total Vendas'))
