@@ -44,42 +44,42 @@
     </form>
 </div>
 
-<!-- GRID DE CARDS -->
-<div class="painel-acao-grid">
-    {% for cliente in clientes %}
-    {% set critica = cliente.dias_parado_maximo > 30 %}
-    <div class="card border-0 shadow-sm h-100" style="border-radius: 12px; border-left: 4px solid {{ 'var(--text-danger)' if critica else 'var(--text-warning)' }} !important;">
-        <div class="card-body py-3 d-flex flex-column gap-2">
-            <div class="d-flex justify-content-between align-items-start gap-2">
-                <div>
+<!-- LISTA -->
+<div class="card border-0 shadow-sm" style="border-radius: 12px;">
+    <div class="list-group list-group-flush">
+        {% for cliente in clientes %}
+        {% set critica = cliente.dias_parado_maximo > 30 %}
+        <div class="list-group-item px-3 py-3 border-start border-4"
+             style="border-left-color: {{ 'var(--text-danger)' if critica else 'var(--text-warning)' }} !important;">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                <div style="flex: 1 1 260px;">
                     <div class="fw-bold text-dark">{{ cliente.razao_social }}</div>
                     <span class="badge badge-light border">{{ cliente.cnpj | cnpj }}</span>
+                    <span class="text-muted small ms-1">
+                        <i class="bi bi-stopwatch"></i> parada há
+                        <span class="badge {{ 'badge-soft-danger' if critica else 'badge-soft-warning' }}">{{ cliente.dias_parado_maximo }}d</span>
+                    </span>
                 </div>
-                <span class="badge badge-soft-accent fs-6">{{ cliente.valor_pendente | moeda }}</span>
-            </div>
 
-            <div class="text-muted small d-flex align-items-center gap-1">
-                <i class="bi bi-stopwatch"></i> Parada há
-                <span class="badge {{ 'badge-soft-danger' if critica else 'badge-soft-warning' }}">{{ cliente.dias_parado_maximo }}d</span>
-            </div>
-
-            <div class="d-flex gap-1 mt-auto pt-2">
-                {% if cliente.telefone %}
-                <a href="{{ cliente.telefone | whatsapp }}" target="_blank" class="btn btn-sm btn-outline-success" title="WhatsApp">
-                    <i class="bi bi-whatsapp"></i>
-                </a>
-                {% endif %}
-                <a href="{{ url_for('clientes.propostas_cliente', id=cliente.id) }}" class="btn btn-sm btn-outline-primary-custom fw-bold flex-fill">
-                    Ver proposta <i class="bi bi-arrow-right ms-1"></i>
-                </a>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge badge-soft-accent fs-6">{{ cliente.valor_pendente | moeda }}</span>
+                    {% if cliente.telefone %}
+                    <a href="{{ cliente.telefone | whatsapp }}" target="_blank" class="btn btn-sm btn-outline-success" title="WhatsApp">
+                        <i class="bi bi-whatsapp"></i>
+                    </a>
+                    {% endif %}
+                    <a href="{{ url_for('clientes.propostas_cliente', id=cliente.id) }}" class="btn btn-sm btn-outline-primary-custom fw-bold">
+                        Ver proposta <i class="bi bi-arrow-right ms-1"></i>
+                    </a>
+                </div>
             </div>
         </div>
+        {% else %}
+        <div class="text-center py-5 text-muted">
+            Nenhuma proposta parada encontrada para este filtro.
+        </div>
+        {% endfor %}
     </div>
-    {% else %}
-    <div class="card border-0 shadow-sm text-center py-5 text-muted" style="border-radius: 12px; grid-column: 1 / -1;">
-        Nenhuma proposta parada encontrada para este filtro.
-    </div>
-    {% endfor %}
 </div>
 
 <div class="modal fade" id="modalUpload" tabindex="-1">

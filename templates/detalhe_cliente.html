@@ -35,13 +35,13 @@
 {% set proposta_lista_texto = linhas_texto | join('\n') if linhas_texto else '[ Nenhuma proposta pendente localizada automaticamente — revise manualmente. ]' %}
 
 {# As 3 mensagens sugeridas, em texto puro (pra Gmail) — a versão com <br> pros cards editáveis está no HTML abaixo #}
-{% set corpo_msg1 = 'Boa tarde,\n\nNotei que as propostas abaixo da ' ~ cliente.razao_social ~ ' ainda estão em aberto:\n\n' ~ proposta_lista_texto ~ '\n\nPoderia confirmar se já há uma definição? Fico à disposição para qualquer dúvida.' %}
+{% set corpo_msg1 = 'Boa noite,\n\nEspero que esteja bem!\n\nEstou fazendo uma revisão nas propostas comerciais em aberto da ' ~ cliente.razao_social ~ ' e notei que ainda não recebemos um retorno referente às propostas detalhadas abaixo:\n\n' ~ proposta_lista_texto ~ '\nPoderia, por gentileza, me informar se houve alguma definição?\nCaso haja necessidade de esclarecimentos, estou à disposição.\n\nDesde já agradeço pela atenção e aguardo seu retorno.' %}
 {% set assunto_msg1 = 'Propostas em aberto - ' ~ cliente.razao_social %}
 
-{% set corpo_msg2 = 'Boa tarde,\n\nReforçando o lembrete: as propostas abaixo da ' ~ cliente.razao_social ~ ' seguem pendentes de aprovação:\n\n' ~ proposta_lista_texto ~ '\n\nPreciso da aprovação para seguirmos com o pedido. Qualquer dúvida, me avise.' %}
+{% set corpo_msg2 = 'Boa tarde, Prezado(a),\n\nEspero que você esteja bem!\n\nGostaria de fazer um lembrete sobre as propostas que estão pendentes de sua aprovação, conforme segue:\n\n' ~ proposta_lista_texto ~ '\nAgradecemos sua atenção, pois sua aprovação é fundamental para darmos continuidade aos nossos projetos.\nSe precisar de mais informações ou tiver alguma dúvida, estou à disposição para ajudar.\n\nAgradeço desde já pela sua colaboração e fico no aguardo de sua resposta.' %}
 {% set assunto_msg2 = 'Lembrete: Propostas Pendentes de Aprovação' %}
 
-{% set corpo_msg3 = 'Boa tarde,\n\nAs propostas abaixo da ' ~ cliente.razao_social ~ ' seguem pendentes' ~ (', a mais antiga há ' ~ proposta_mais_antiga.dias_parado ~ ' dias' if proposta_mais_antiga else '') ~ ':\n\n' ~ proposta_lista_texto ~ '\n\nPreciso de um retorno para darmos andamento. Podemos alinhar hoje?' %}
+{% set corpo_msg3 = 'Boa tarde.\n\nReiteramos nosso contato anterior a respeito das propostas da ' ~ cliente.razao_social ~ ' que ainda constam como pendentes de aprovação' ~ (', a mais antiga já parada há ' ~ proposta_mais_antiga.dias_parado ~ ' dias' if proposta_mais_antiga else '') ~ ':\n\n' ~ proposta_lista_texto ~ '\nReforçamos a importância de sua análise para que possamos dar continuidade às etapas seguintes com a excelência que prezamos em nosso atendimento.\n\nPermanecemos à disposição para qualquer esclarecimento ou suporte adicional que se faça necessário.\nAgradecemos desde já pela atenção e confiança depositadas em nosso trabalho.' %}
 {% set assunto_msg3 = 'Propostas pendentes - retorno necessário - ' ~ cliente.razao_social %}
 
 {% set dias_mais_antiga = proposta_mais_antiga.dias_parado if proposta_mais_antiga else 0 %}
@@ -241,10 +241,13 @@
                                     </div>
                                 </div>
                                 <div class="bg-white p-3 rounded border text-muted small fst-italic editable-area" id="msg1" contenteditable="true">
-                                    Boa tarde,<br><br>
-                                    Notei que as propostas abaixo da <strong>{{ cliente.razao_social }}</strong> ainda estão em aberto:<br><br>
+                                    Boa noite,<br><br>
+                                    Espero que esteja bem!<br><br>
+                                    Estou fazendo uma revisão nas propostas comerciais em aberto da <strong>{{ cliente.razao_social }}</strong> e notei que ainda não recebemos um retorno referente às propostas detalhadas abaixo:<br><br>
                                     {{ proposta_lista_html }}<br>
-                                    Poderia confirmar se já há uma definição? Fico à disposição para qualquer dúvida.
+                                    Poderia, por gentileza, me informar se houve alguma definição?<br>
+                                    Caso haja necessidade de esclarecimentos, estou à disposição.<br><br>
+                                    Desde já agradeço pela atenção e aguardo seu retorno.
                                 </div>
                             </div>
                         </div>
@@ -260,10 +263,13 @@
                                 </div>
                                 <div class="bg-white p-3 rounded border text-muted small fst-italic editable-area" id="msg2" contenteditable="true">
                                     <strong>Assunto: Lembrete: Propostas Pendentes de Aprovação</strong><br><br>
-                                    Boa tarde,<br><br>
-                                    Reforçando o lembrete: as propostas abaixo da <strong>{{ cliente.razao_social }}</strong> seguem pendentes de aprovação:<br><br>
+                                    Boa tarde, Prezado(a),<br><br>
+                                    Espero que você esteja bem!<br><br>
+                                    Gostaria de fazer um lembrete sobre as propostas que estão pendentes de sua aprovação, conforme segue:<br><br>
                                     {{ proposta_lista_html }}<br>
-                                    Preciso da aprovação para seguirmos com o pedido. Qualquer dúvida, me avise.
+                                    Agradecemos sua atenção, pois sua aprovação é fundamental para darmos continuidade aos nossos projetos.<br>
+                                    Se precisar de mais informações ou tiver alguma dúvida, estou à disposição para ajudar.<br><br>
+                                    Agradeço desde já pela sua colaboração e fico no aguardo de sua resposta.
                                 </div>
                             </div>
                         </div>
@@ -278,10 +284,12 @@
                                     </div>
                                 </div>
                                 <div class="bg-white p-3 rounded border text-muted small fst-italic editable-area" id="msg3" contenteditable="true">
-                                    Boa tarde,<br><br>
-                                    As propostas abaixo da <strong>{{ cliente.razao_social }}</strong> seguem pendentes{% if proposta_mais_antiga %}, a mais antiga há <strong>{{ proposta_mais_antiga.dias_parado }} dias</strong>{% endif %}:<br><br>
+                                    Boa tarde.<br><br>
+                                    Reiteramos nosso contato anterior a respeito das propostas da <strong>{{ cliente.razao_social }}</strong> que ainda constam como pendentes de aprovação{% if proposta_mais_antiga %}, a mais antiga já parada há <strong>{{ proposta_mais_antiga.dias_parado }} dias</strong>{% endif %}:<br><br>
                                     {{ proposta_lista_html }}<br>
-                                    Preciso de um retorno para darmos andamento. Podemos alinhar hoje?
+                                    Reforçamos a importância de sua análise para que possamos dar continuidade às etapas seguintes com a excelência que prezamos em nosso atendimento.<br><br>
+                                    Permanecemos à disposição para qualquer esclarecimento ou suporte adicional que se faça necessário.<br>
+                                    Agradecemos desde já pela atenção e confiança depositadas em nosso trabalho.
                                 </div>
                             </div>
                         </div>
