@@ -1,0 +1,264 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+{% set propostas_pendentes = cliente.propostas | selectattr('status_cobranca', 'equalto', 'Pendente') | list %}
+{% set propostas_ordenadas = propostas_pendentes | sort(attribute='dias_parado', reverse=true) | list %}
+{% set proposta_mais_antiga = propostas_ordenadas | first %}
+
+{% set emails_pendentes = [] %}
+{% for p in propostas_pendentes %}
+    {% if p.email_aprov %}
+        {% for e in p.email_aprov.split(',') %}
+            {% if e.strip() and e.strip() not in emails_pendentes %}{% set _ = emails_pendentes.append(e.strip()) %}{% endif %}
+        {% endfor %}
+    {% endif %}
+{% endfor %}
+{% set emails_para_cobranca = emails_pendentes if emails_pendentes else ([cliente.emails_cobranca] if cliente.emails_cobranca else []) %}
+
+{% set linhas_texto = [] %}
+{% for p in propostas_ordenadas %}
+{% set _ = linhas_texto.append('• Proposta #' ~ p.numero_proposta) %}
+{% endfor %}
+{% set proposta_lista_texto = linhas_texto | join('\n') if linhas_texto else '[ Nenhuma proposta pendente localizada automaticamente — revise manualmente. ]' %}
+
+{% set proposta_lista_html %}
+{%- if propostas_ordenadas -%}
+{%- for p in propostas_ordenadas %}• Proposta #{{ p.numero_proposta }}<br>
+{% endfor -%}
+{%- else -%}
+[ Nenhuma proposta pendente localizada automaticamente — revise manualmente. ]
+{%- endif -%}
+{% endset %}
+
+{% set corpo_msg1 = 'Boa tarde,\n\nNotei que as propostas abaixo da ' ~ cliente.razao_social ~ ' ainda estão em aberto:\n\n' ~ proposta_lista_texto ~ '\n\nPoderia confirmar se já há uma definição? Fico à disposição para qualquer dúvida.' %}
+{% set assunto_msg1 = 'Propostas em aberto - ' ~ cliente.razao_social %}
+
+{% set corpo_msg2 = 'Boa tarde,\n\nReforçando o lembrete: as propostas abaixo da ' ~ cliente.razao_social ~ ' seguem pendentes de aprovação:\n\n' ~ proposta_lista_texto ~ '\n\nPreciso da aprovação para seguirmos com o pedido. Qualquer dúvida, me avise.' %}
+{% set assunto_msg2 = 'Lembrete: Propostas Pendentes de Aprovação' %}
+
+{% set corpo_msg3 = 'Boa tarde,\n\nAs propostas abaixo da ' ~ cliente.razao_social ~ ' seguem pendentes' ~ (', a mais antiga há ' ~ proposta_mais_antiga.dias_parado ~ ' dias' if proposta_mais_antiga else '') ~ ':\n\n' ~ proposta_lista_texto ~ '\n\nPreciso de um retorno para darmos andamento. Podemos alinhar hoje?' %}
+{% set assunto_msg3 = 'Propostas pendentes - retorno necessário - ' ~ cliente.razao_social %}
+
+{% set dias_mais_antiga = proposta_mais_antiga.dias_parado if proposta_mais_antiga else 0 %}
+{% set template_sugerido = 'msg3' if dias_mais_antiga > critico_dias else ('msg2' if dias_mais_antiga >= 7 else 'msg1') %}
+{% set corpo_sugerido = {'msg1': corpo_msg1, 'msg2': corpo_msg2, 'msg3': corpo_msg3}[template_sugerido] %}
+{% set assunto_sugerido = {'msg1': assunto_msg1, 'msg2': assunto_msg2, 'msg3': assunto_msg3}[template_sugerido] %}
+{% set gmail_link_sugerido = 'https://mail.google.com/mail/?view=cm&fs=1&to=' ~ (emails_para_cobranca | join(',') | urlencode) ~ '&su=' ~ (assunto_sugerido | urlencode) ~ '&body=' ~ (corpo_sugerido | urlencode) %}
+
+<a href="{{ url_for('cobranca.cobranca') }}" class="text-decoration-none text-muted fw-bold small mb-2 d-inline-block">
+    <i class="bi bi-arrow-left me-1"></i> Voltar para Propostas Paradas
+</a>
+
+<!-- CABEÇALHO -->
+<div class="card border-0 shadow-sm mb-4" style="border-radius: 16px; background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);">
+    <div class="card-body p-4 d-flex justify-content-between align-items-center flex-wrap gap-3 text-white">
+        <div>
+            <h3 class="fw-bold mb-1">{{ cliente.razao_social }}</h3>
+            <span class="badge bg-white bg-opacity-25 text-white d-inline-flex align-items-center gap-1">
+                {{ cliente.cnpj | cnpj }}
+                <button type="button" class="btn btn-link p-0 text-white" style="line-height: 1;"
+                        onclick="copiarComFeedback(this, '{{ cliente.cnpj | cnpj }}')" title="Copiar CNPJ">
+                    <i class="bi bi-clipboard"></i>
+                </button>
+            </span>
+        </div>
+        <div class="text-end">
+            <div class="small text-uppercase fw-bold opacity-75">Total pendente</div>
+            <div class="display-6 fw-bold">{{ cliente.valor_pendente | moeda }}</div>
+            <div class="small opacity-75">{{ propostas_pendentes | length }} proposta(s) pendente(s)</div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-7">
+        <!-- PROPOSTAS PENDENTES -->
+        <div class="card shadow-sm border-0 mb-4" style="border-radius: 14px;">
+            <div class="card-header bg-white fw-bold text-dark border-bottom py-3" style="border-radius: 14px 14px 0 0;">
+                <i class="bi bi-file-earmark-text me-2 text-primary-custom"></i>Propostas pendentes ({{ propostas_pendentes | length }})
+            </div>
+            <div class="card-body p-3">
+                <div class="d-flex flex-column gap-2">
+                    {% for p in propostas_ordenadas %}
+                    {% set dias = p.dias_parado %}
+                    <div class="d-flex justify-content-between align-items-center p-3 rounded-3 border {{ 'border-danger bg-danger bg-opacity-10' if dias > critico_dias else 'bg-light' }}">
+                        <div>
+                            <div class="fw-bold text-dark">Proposta #{{ p.numero_proposta }}</div>
+                            <small class="text-muted">{{ p.data_criacao_proposta.strftime('%d/%m/%Y') if p.data_criacao_proposta }} — {{ p.email_solicit or 'sem e-mail' }}</small>
+                        </div>
+                        <div class="text-end d-flex align-items-center gap-2">
+                            <div class="text-end">
+                                <div class="fw-bold text-dark">{{ p.valor | moeda }}</div>
+                                <span class="badge {{ 'badge-soft-danger' if dias > critico_dias else 'badge-soft-warning' }}"><i class="bi bi-stopwatch me-1"></i>{{ dias }}d</span>
+                            </div>
+                            <form action="/proposta/{{ p.id }}/status/Ok" method="POST">
+                                <button type="submit" class="btn btn-sm btn-outline-success" title="Marcar como Ok">
+                                    <i class="bi bi-check-lg"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="text-center text-muted py-4">Nenhuma proposta pendente para este cliente.</div>
+                    {% endfor %}
+                </div>
+                {% if propostas_pendentes | length > 1 %}
+                <form action="/cliente/{{ cliente.id }}/propostas/status/Ok" method="POST" class="mt-3">
+                    <button type="submit" class="btn btn-sm btn-outline-success w-100">
+                        <i class="bi bi-check-all me-1"></i> Marcar todas como Ok
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- GERADOR DE MENSAGEM -->
+        <div class="card shadow-sm border-0" style="border-radius: 14px;">
+            <div class="card-header bg-white fw-bold text-dark border-bottom py-3 d-flex justify-content-between align-items-center flex-wrap gap-2" style="border-radius: 14px 14px 0 0;">
+                <span><i class="bi bi-envelope-paper me-2 text-primary-custom"></i>Mensagens prontas</span>
+                <span class="badge badge-soft-accent">Sugestão: {{ {'msg1': '1. Revisão/Inicial', 'msg2': '2. Lembrete', 'msg3': '3. Reiteração'}[template_sugerido] }}</span>
+            </div>
+            <div class="card-body p-3">
+                <p class="alert alert-info py-2 small border-0 mb-3">
+                    <i class="bi bi-pencil-fill me-2"></i> <strong>Editável:</strong> clique no texto pra ajustar antes de copiar ou abrir no Gmail.
+                </p>
+
+                <div class="card border mb-3 {{ 'border-primary' if template_sugerido == 'msg1' }}">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between mb-2 align-items-center">
+                            <h6 class="fw-bold text-primary mb-0">1. Revisão / Inicial {% if template_sugerido == 'msg1' %}<span class="badge bg-primary">Sugerido</span>{% endif %}</h6>
+                            <div class="d-flex gap-1">
+                                <button class="btn btn-sm btn-outline-secondary" onclick="focarEdicao('msg1')" title="Editar Texto"><i class="bi bi-pencil"></i></button>
+                                <button class="btn btn-sm btn-outline-primary-custom fw-bold" onclick="copiarModelo('msg1')"><i class="bi bi-clipboard me-1"></i> Copiar</button>
+                            </div>
+                        </div>
+                        <div class="bg-light p-3 rounded border text-muted small fst-italic editable-area" id="msg1" contenteditable="true">
+                            Boa tarde,<br><br>
+                            Notei que as propostas abaixo da <strong>{{ cliente.razao_social }}</strong> ainda estão em aberto:<br><br>
+                            {{ proposta_lista_html }}<br>
+                            Poderia confirmar se já há uma definição? Fico à disposição para qualquer dúvida.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card border mb-3 {{ 'border-dark' if template_sugerido == 'msg2' }}">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between mb-2 align-items-center">
+                            <h6 class="fw-bold text-dark mb-0">2. Lembrete (1ª Cobrança) {% if template_sugerido == 'msg2' %}<span class="badge bg-dark">Sugerido</span>{% endif %}</h6>
+                            <div class="d-flex gap-1">
+                                <button class="btn btn-sm btn-outline-secondary" onclick="focarEdicao('msg2')" title="Editar Texto"><i class="bi bi-pencil"></i></button>
+                                <button class="btn btn-sm btn-outline-dark fw-bold" onclick="copiarModelo('msg2')"><i class="bi bi-clipboard me-1"></i> Copiar</button>
+                            </div>
+                        </div>
+                        <div class="bg-light p-3 rounded border text-muted small fst-italic editable-area" id="msg2" contenteditable="true">
+                            <strong>Assunto: Lembrete: Propostas Pendentes de Aprovação</strong><br><br>
+                            Boa tarde,<br><br>
+                            Reforçando o lembrete: as propostas abaixo da <strong>{{ cliente.razao_social }}</strong> seguem pendentes de aprovação:<br><br>
+                            {{ proposta_lista_html }}<br>
+                            Preciso da aprovação para seguirmos com o pedido. Qualquer dúvida, me avise.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card border mb-3 {{ 'border-danger' if template_sugerido == 'msg3' }}">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between mb-2 align-items-center">
+                            <h6 class="fw-bold text-danger mb-0">3. Reiteração (2ª Cobrança) {% if template_sugerido == 'msg3' %}<span class="badge bg-danger">Sugerido</span>{% endif %}</h6>
+                            <div class="d-flex gap-1">
+                                <button class="btn btn-sm btn-outline-secondary" onclick="focarEdicao('msg3')" title="Editar Texto"><i class="bi bi-pencil"></i></button>
+                                <button class="btn btn-sm btn-outline-danger fw-bold" onclick="copiarModelo('msg3')"><i class="bi bi-clipboard me-1"></i> Copiar</button>
+                            </div>
+                        </div>
+                        <div class="bg-light p-3 rounded border text-muted small fst-italic editable-area" id="msg3" contenteditable="true">
+                            Boa tarde,<br><br>
+                            As propostas abaixo da <strong>{{ cliente.razao_social }}</strong> seguem pendentes{% if proposta_mais_antiga %}, a mais antiga há <strong>{{ proposta_mais_antiga.dias_parado }} dias</strong>{% endif %}:<br><br>
+                            {{ proposta_lista_html }}<br>
+                            Preciso de um retorno para darmos andamento. Podemos alinhar hoje?
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-grid">
+                    <a href="{{ gmail_link_sugerido }}" target="_blank" class="btn btn-orange-custom text-white fw-bold py-3 shadow-sm">
+                        <i class="bi bi-envelope-fill me-2"></i> Cobrar por e-mail (abrir no Gmail)
+                    </a>
+                    <small class="text-muted text-center mt-1">
+                        {% if emails_pendentes %}Destinatários: {{ emails_pendentes | join(', ') }}
+                        {% else %}Nenhum e-mail de aprovação nas propostas pendentes — usando e-mail de contato manual.{% endif %}
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <!-- CONTATO PARA COBRANÇA -->
+        <div class="card shadow-sm border-0" style="border-radius: 14px;">
+            <div class="card-header bg-white fw-bold text-dark border-bottom py-3" style="border-radius: 14px 14px 0 0;">
+                <i class="bi bi-person-lines-fill me-2 text-primary-custom"></i>Contato para cobrança
+            </div>
+            <div class="card-body p-3">
+                <label class="small text-muted fw-bold">E-mails</label>
+                <div class="input-group mb-3">
+                    <textarea class="form-control" rows="2" id="emailQuickCopy" readonly>{{ emails_para_cobranca | join(', ') }}</textarea>
+                    <button type="button" class="btn btn-outline-secondary" onclick="copiarTexto('emailQuickCopy')" title="Copiar E-mails">
+                        <i class="bi bi-clipboard"></i>
+                    </button>
+                </div>
+                <div class="d-flex flex-column gap-2">
+                    {% if cliente.telefone %}
+                    <a href="{{ cliente.telefone | whatsapp }}" target="_blank" class="btn btn-outline-success">
+                        <i class="bi bi-whatsapp me-1"></i> WhatsApp
+                    </a>
+                    {% endif %}
+                    {% if emails_para_cobranca %}
+                    <a href="{{ gmail_link_sugerido }}" target="_blank" class="btn btn-outline-primary-custom">
+                        <i class="bi bi-envelope me-1"></i> Cobrar por e-mail
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .editable-area:focus {
+        outline: 2px solid var(--accent);
+        background-color: #fff;
+        color: #333 !important;
+        cursor: text;
+    }
+    .editable-area {
+        cursor: text;
+        transition: all 0.2s;
+    }
+    .editable-area:hover {
+        background-color: #fcfcfc;
+        border-color: #bbb !important;
+    }
+</style>
+
+<script>
+    function copiarTexto(idElemento) {
+        var copyText = document.getElementById(idElemento);
+        copyText.select();
+        copyText.setSelectionRange(0, 99999);
+        navigator.clipboard.writeText(copyText.value);
+        alert("E-mails copiados!");
+    }
+
+    function focarEdicao(idDiv) {
+        var div = document.getElementById(idDiv);
+        div.focus();
+    }
+
+    function copiarModelo(idDiv) {
+        var texto = document.getElementById(idDiv).innerText;
+        navigator.clipboard.writeText(texto);
+        alert("Texto copiado! Agora cole no e-mail e insira o Print.");
+    }
+</script>
+
+{% endblock %}

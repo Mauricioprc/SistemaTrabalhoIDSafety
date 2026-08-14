@@ -47,19 +47,20 @@
 <!-- GRID DE CARDS -->
 <div class="painel-acao-grid">
     {% for cliente in clientes %}
-    <div class="card border shadow-sm h-100" style="border-radius: 10px;">
+    {% set critica = cliente.dias_parado_maximo > 30 %}
+    <div class="card border-0 shadow-sm h-100" style="border-radius: 12px; border-left: 4px solid {{ 'var(--text-danger)' if critica else 'var(--text-warning)' }} !important;">
         <div class="card-body py-3 d-flex flex-column gap-2">
             <div class="d-flex justify-content-between align-items-start gap-2">
                 <div>
                     <div class="fw-bold text-dark">{{ cliente.razao_social }}</div>
                     <span class="badge badge-light border">{{ cliente.cnpj | cnpj }}</span>
                 </div>
-                <span class="badge badge-soft-accent">{{ cliente.valor_pendente | moeda }}</span>
+                <span class="badge badge-soft-accent fs-6">{{ cliente.valor_pendente | moeda }}</span>
             </div>
 
-            <div class="text-muted small">
-                Proposta pendente parada há
-                <span class="badge {{ 'badge-soft-danger' if cliente.dias_parado_maximo > 30 else 'badge-soft-warning' }}">{{ cliente.dias_parado_maximo }}d</span>
+            <div class="text-muted small d-flex align-items-center gap-1">
+                <i class="bi bi-stopwatch"></i> Parada há
+                <span class="badge {{ 'badge-soft-danger' if critica else 'badge-soft-warning' }}">{{ cliente.dias_parado_maximo }}d</span>
             </div>
 
             <div class="d-flex gap-1 mt-auto pt-2">
@@ -68,8 +69,8 @@
                     <i class="bi bi-whatsapp"></i>
                 </a>
                 {% endif %}
-                <a href="/cliente/{{ cliente.id }}" class="btn btn-sm btn-outline-primary-custom fw-bold flex-fill">
-                    Ver cliente <i class="bi bi-arrow-right ms-1"></i>
+                <a href="{{ url_for('clientes.propostas_cliente', id=cliente.id) }}" class="btn btn-sm btn-outline-primary-custom fw-bold flex-fill">
+                    Ver proposta <i class="bi bi-arrow-right ms-1"></i>
                 </a>
             </div>
         </div>

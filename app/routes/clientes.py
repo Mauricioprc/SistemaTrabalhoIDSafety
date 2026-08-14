@@ -29,6 +29,16 @@ def lista():
     return render_template('clientes_lista.html', clientes=clientes, q=q, critico_dias=CRITICO_DIAS)
 
 
+@bp.route('/cliente/<int:id>/propostas')
+def propostas_cliente(id):
+    """Tela enxuta de Propostas Paradas do cliente — só propostas
+    pendentes, valores totais, contato de cobrança e as mensagens prontas.
+    É pra onde o Painel de Ação (/cobranca) leva ao clicar em "Ver
+    proposta"; o Cliente 360 completo continua em /cliente/<id>."""
+    c = Cliente.query.options(joinedload(Cliente.propostas)).get_or_404(id)
+    return render_template('propostas_cliente.html', cliente=c, critico_dias=CRITICO_DIAS)
+
+
 @bp.route('/cliente/<int:id>')
 def detalhe_cliente(id):
     """Cliente 360: dados cadastrais + contatos, propostas, retenção, NPS,
