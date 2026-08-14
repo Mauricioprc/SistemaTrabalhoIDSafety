@@ -7,7 +7,7 @@ from werkzeug.datastructures import FileStorage
 from app.models import Cliente, Proposta
 from app.services.importacao.empresas import EmpresasImportador
 from app.services.importacao.propostas import importar_propostas
-from app.services.painel_acao import cliente_novo, montar_painel
+from app.services.radar import cliente_novo, clientes_novos_recentes
 from tests.conftest import cria_cliente, dias_atras
 
 
@@ -114,17 +114,15 @@ def test_filtro_clientes_novos_respeita_janela_e_data_nula(db):
     assert cliente_novo(sem_data_sem_proposta) is False
 
 
-def test_painel_de_acao_conta_e_filtra_clientes_novos_corretamente(db):
-    """Mesma checagem acima, mas passando pelo caminho real do painel de
-    ação (montar_painel), não só a função utilitária isolada."""
+def test_radar_filtra_clientes_novos_corretamente(db):
+    """Mesma checagem acima, mas passando pelo caminho real do Radar
+    (clientes_novos_recentes), não só a função utilitária isolada."""
     recente_sem_proposta = cria_cliente(db, cnpj='30000000000191', data_cadastro=dias_atras(10))
     cria_cliente(db, cnpj='30000000000272', data_cadastro=dias_atras(90))   # fora da janela
     cria_cliente(db, cnpj='30000000000353', data_cadastro=None)             # sem data
     db.session.commit()
 
     clientes = Cliente.query.all()
-    contagens, linhas = montar_painel(clientes, filtro='novo', q='')
+    novos = clientes_novos_recentes(clientes)
 
-    assert contagens['novo'] == 1
-    ids_no_filtro = {linha['cliente'].id for linha in linhas}
-    assert ids_no_filtro == {recente_sem_proposta.id}
+    assert {c.id for c in novos} == {recente_sem_proposta.id}

@@ -1,12 +1,7 @@
-"""resumo_propostas_paradas() e a ordenação específica da categoria
-'proposta_parada' (valor_pendente * dias_parado_maximo, não score_prioridade)."""
-from app.services.painel_acao import (
-    CHAVES_FAIXAS_DIAS_PARADO,
-    categorias_do_cliente,
-    montar_painel,
-    resumo_propostas_paradas,
-)
-from tests.conftest import cria_classe_abc, cria_cliente, cria_indicador_retencao, cria_proposta, dias_atras
+"""Propostas Paradas (services/painel_acao.py) — único propósito: clientes
+com proposta parada, ordenados por valor_pendente * dias_parado_maximo."""
+from app.services.painel_acao import CHAVES_FAIXAS_DIAS_PARADO, montar_painel, resumo_propostas_paradas
+from tests.conftest import cria_cliente, cria_proposta, dias_atras
 
 
 def test_resumo_propostas_paradas_agrupa_por_faixa_e_soma_valor(db):
@@ -56,109 +51,58 @@ def test_resumo_propostas_paradas_limites_de_faixa_sao_semiabertos(db):
     assert por_chave['parada_0_15'] == 0
 
 
-def test_faixa_como_filtro_no_painel_retorna_so_clientes_daquela_faixa(db):
-    perto = cria_cliente(db, cnpj='70000000000859')
-    cria_proposta(db, perto, status_cobranca='Pendente', data_criacao_proposta=dias_atras(5), valor=10.0)
+def test_montar_painel_so_retorna_clientes_com_proposta_parada(db):
+    parado = cria_cliente(db, cnpj='70000000000859')
+    cria_proposta(db, parado, status_cobranca='Pendente', data_criacao_proposta=dias_atras(20), valor=10.0)
 
-    longe = cria_cliente(db, cnpj='70000000000930')
+    recente = cria_cliente(db, cnpj='70000000000930')  # proposta recente, não "parada"
+    cria_proposta(db, recente, status_cobranca='Pendente', data_criacao_proposta=dias_atras(2), valor=10.0)
+
+    sem_proposta = cria_cliente(db, cnpj='70000000001001')
+    db.session.commit()
+
+    clientes = montar_painel([parado, recente, sem_proposta], filtro='', q='')
+    assert [c.id for c in clientes] == [parado.id]
+
+
+def test_faixa_como_filtro_retorna_so_clientes_daquela_faixa(db):
+    perto = cria_cliente(db, cnpj='70000000001010')
+    cria_proposta(db, perto, status_cobranca='Pendente', data_criacao_proposta=dias_atras(20), valor=10.0)
+
+    longe = cria_cliente(db, cnpj='70000000001091')
     cria_proposta(db, longe, status_cobranca='Pendente', data_criacao_proposta=dias_atras(90), valor=10.0)
     db.session.commit()
 
     assert 'parada_60_mais' in CHAVES_FAIXAS_DIAS_PARADO
 
-    _contagens, linhas = montar_painel([perto, longe], filtro='parada_60_mais', q='')
-    ids = {linha['cliente'].id for linha in linhas}
-    assert ids == {longe.id}
-    assert linhas[0]['categoria'] == 'proposta_parada'
+    clientes = montar_painel([perto, longe], filtro='parada_60_mais', q='')
+    assert [c.id for c in clientes] == [longe.id]
 
 
-def test_ordenacao_proposta_parada_usa_valor_vezes_dias_nao_score(db):
+def test_busca_por_nome_ou_cnpj_filtra_antes_de_avaliar_parada(db):
+    alvo = cria_cliente(db, cnpj='70000000001172', razao_social='EMPRESA ALVO LTDA')
+    cria_proposta(db, alvo, status_cobranca='Pendente', data_criacao_proposta=dias_atras(20), valor=10.0)
+
+    outro = cria_cliente(db, cnpj='70000000001253', razao_social='OUTRA EMPRESA LTDA')
+    cria_proposta(db, outro, status_cobranca='Pendente', data_criacao_proposta=dias_atras(20), valor=10.0)
+    db.session.commit()
+
+    clientes = montar_painel([alvo, outro], filtro='', q='ALVO')
+    assert [c.id for c in clientes] == [alvo.id]
+
+
+def test_ordenacao_usa_valor_vezes_dias_nao_score(db):
     """Cliente com score baixo mas dívida grande/velha deve vir antes de um
-    cliente com score alto e dívida pequena/recente, dentro dessa categoria."""
-    divida_grande = cria_cliente(db, cnpj='70000000001010', score_prioridade=10)
+    cliente com score alto e dívida pequena/recente — o score não entra
+    nessa conta, o único critério é valor_pendente * dias_parado_maximo."""
+    divida_grande = cria_cliente(db, cnpj='70000000001334', score_prioridade=10)
     cria_proposta(db, divida_grande, status_cobranca='Pendente', data_criacao_proposta=dias_atras(100), valor=1000.0)
 
-    score_alto_divida_pequena = cria_cliente(db, cnpj='70000000001091', score_prioridade=200)
+    score_alto_divida_pequena = cria_cliente(db, cnpj='70000000001415', score_prioridade=200)
     cria_proposta(db, score_alto_divida_pequena, status_cobranca='Pendente',
                   data_criacao_proposta=dias_atras(16), valor=10.0)
     db.session.commit()
 
-    _contagens, linhas = montar_painel(
-        [divida_grande, score_alto_divida_pequena], filtro='proposta_parada', q='')
+    clientes = montar_painel([divida_grande, score_alto_divida_pequena], filtro='', q='')
 
-    assert [linha['cliente'].id for linha in linhas] == [divida_grande.id, score_alto_divida_pequena.id]
-
-
-def test_ordenacao_prioridade_continua_por_score(db):
-    """Fora de 'proposta_parada', a ordenação continua sendo por score_prioridade."""
-    score_baixo = cria_cliente(db, cnpj='70000000001172', score_prioridade=60)
-    score_alto = cria_cliente(db, cnpj='70000000001253', score_prioridade=150)
-    db.session.commit()
-
-    _contagens, linhas = montar_painel([score_baixo, score_alto], filtro='prioridade', q='')
-
-    assert [linha['cliente'].id for linha in linhas] == [score_alto.id, score_baixo.id]
-
-
-# --- categoria "oportunidade" ---
-
-def test_oportunidade_classe_a_sem_risco_comprando_pouco_sem_proposta(db):
-    cliente = cria_cliente(db, cnpj='70000000001334')
-    cria_indicador_retencao(db, cliente, ira_cair=False, frequencia_compra='Mensal', dias_desde_ultimo_pedido=90)
-    cria_classe_abc(db, cliente, classe='A')
-    db.session.commit()
-
-    assert 'oportunidade' in categorias_do_cliente(cliente)
-
-
-def test_nao_e_oportunidade_se_ira_cair(db):
-    """Se já tem risco de queda sinalizado, é caso de prioridade/risco, não oportunidade."""
-    cliente = cria_cliente(db, cnpj='70000000001415')
-    cria_indicador_retencao(db, cliente, ira_cair=True, frequencia_compra='Mensal', dias_desde_ultimo_pedido=90)
-    cria_classe_abc(db, cliente, classe='A')
-    db.session.commit()
-
-    assert 'oportunidade' not in categorias_do_cliente(cliente)
-
-
-def test_nao_e_oportunidade_se_classe_c(db):
-    cliente = cria_cliente(db, cnpj='70000000001496')
-    cria_indicador_retencao(db, cliente, ira_cair=False, frequencia_compra='Mensal', dias_desde_ultimo_pedido=90)
-    cria_classe_abc(db, cliente, classe='C')
-    db.session.commit()
-
-    assert 'oportunidade' not in categorias_do_cliente(cliente)
-
-
-def test_nao_e_oportunidade_se_tem_proposta_pendente(db):
-    """Com proposta pendente em aberto, o caso já é coberto por outra categoria."""
-    cliente = cria_cliente(db, cnpj='70000000001577')
-    cria_indicador_retencao(db, cliente, ira_cair=False, frequencia_compra='Mensal', dias_desde_ultimo_pedido=90)
-    cria_classe_abc(db, cliente, classe='B')
-    cria_proposta(db, cliente, status_cobranca='Pendente', data_criacao_proposta=dias_atras(1))
-    db.session.commit()
-
-    assert 'oportunidade' not in categorias_do_cliente(cliente)
-
-
-def test_nao_e_oportunidade_se_dias_dentro_do_esperado(db):
-    cliente = cria_cliente(db, cnpj='70000000001658')
-    cria_indicador_retencao(db, cliente, ira_cair=False, frequencia_compra='Mensal', dias_desde_ultimo_pedido=10)
-    cria_classe_abc(db, cliente, classe='A')
-    db.session.commit()
-
-    assert 'oportunidade' not in categorias_do_cliente(cliente)
-
-
-def test_badge_oportunidade_usa_cor_azul_distinta_de_risco(db):
-    from app.services.painel_acao import badge_e_motivo
-
-    cliente = cria_cliente(db, cnpj='70000000001739')
-    cria_indicador_retencao(db, cliente, ira_cair=False, frequencia_compra='Mensal', dias_desde_ultimo_pedido=90)
-    cria_classe_abc(db, cliente, classe='B')
-    db.session.commit()
-
-    classe_badge, _valor, motivo, _motivos = badge_e_motivo(cliente, 'oportunidade')
-    assert classe_badge == 'badge-soft-info'
-    assert classe_badge not in ('badge-soft-danger', 'badge-soft-warning', 'badge-soft-accent')
-    assert 'Classe B' in motivo
+    assert [c.id for c in clientes] == [divida_grande.id, score_alto_divida_pequena.id]

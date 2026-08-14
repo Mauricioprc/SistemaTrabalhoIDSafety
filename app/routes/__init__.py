@@ -6,6 +6,7 @@ def register_blueprints(app):
     from app.routes.importacao import bp as importacao_bp
     from app.routes.tarefas import bp as tarefas_bp
     from app.routes.raizen import bp as raizen_bp
+    from app.routes.radar import bp as radar_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(dashboard_bp)
@@ -14,3 +15,4 @@ def register_blueprints(app):
     app.register_blueprint(importacao_bp)
     app.register_blueprint(tarefas_bp)
     app.register_blueprint(raizen_bp)
+    app.register_blueprint(radar_bp)

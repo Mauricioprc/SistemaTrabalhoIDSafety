@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from flask import Blueprint, flash, redirect, render_template, request, url_for
-from sqlalchemy.orm import joinedload, selectinload
+from sqlalchemy.orm import selectinload
 
 from app.extensions import db
 from app.models import Cliente, Proposta
@@ -14,6 +14,8 @@ bp = Blueprint('cobranca', __name__)
 
 @bp.route('/cobranca', methods=['GET', 'POST'])
 def cobranca():
+    """Propostas Paradas — página inicial do sistema. Um único propósito:
+    lembrar cliente que fez cotação e não deu andamento."""
     if request.method == 'POST':
         arquivo = request.files.get('planilha')
         if arquivo:
@@ -29,22 +31,14 @@ def cobranca():
         return redirect(url_for('cobranca.cobranca'))
 
     q = request.args.get('q', '')
-    filtro = request.args.get('filtro', '')
+    filtro = request.args.get('filtro', '')  # faixa de dias parado (parada_0_15/15_30/30_60/60_mais)
 
-    todos_clientes = Cliente.query.options(
-        selectinload(Cliente.propostas),
-        joinedload(Cliente.indicador_retencao),
-        # classes_abc/notas_nps: badge_e_motivo() recalcula o score pra
-        # expor os motivos estruturados na categoria "prioridade" — sem
-        # eager loading isso vira N+1 de novo pros clientes dessa categoria.
-        selectinload(Cliente.classes_abc),
-        selectinload(Cliente.notas_nps),
-    ).all()
+    todos_clientes = Cliente.query.options(selectinload(Cliente.propostas)).all()
 
-    contagens, linhas = montar_painel(todos_clientes, filtro, q)
+    clientes_parados = montar_painel(todos_clientes, filtro, q)
     resumo_paradas = resumo_propostas_paradas(todos_clientes)
 
-    return render_template('painel_acao.html', linhas=linhas, contagens=contagens,
+    return render_template('painel_acao.html', clientes=clientes_parados,
                            resumo_paradas=resumo_paradas,
                            q=q, filtro=filtro, critico_dias=CRITICO_DIAS)
 
