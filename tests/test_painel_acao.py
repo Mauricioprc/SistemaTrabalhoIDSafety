@@ -106,3 +106,42 @@ def test_ordenacao_usa_valor_vezes_dias_nao_score(db):
     clientes = montar_painel([divida_grande, score_alto_divida_pequena], filtro='', q='')
 
     assert [c.id for c in clientes] == [divida_grande.id, score_alto_divida_pequena.id]
+
+
+def test_ordenar_dias_ignora_valor_ordena_so_pela_mais_antiga(db):
+    antiga_barata = cria_cliente(db, cnpj='70000000001496')
+    cria_proposta(db, antiga_barata, status_cobranca='Pendente', data_criacao_proposta=dias_atras(90), valor=10.0)
+
+    recente_cara = cria_cliente(db, cnpj='70000000001577')
+    cria_proposta(db, recente_cara, status_cobranca='Pendente', data_criacao_proposta=dias_atras(16), valor=5000.0)
+    db.session.commit()
+
+    clientes = montar_painel([antiga_barata, recente_cara], filtro='', q='', ordenar='dias')
+
+    assert [c.id for c in clientes] == [antiga_barata.id, recente_cara.id]
+
+
+def test_ordenar_valor_ignora_dias_ordena_so_pelo_maior_valor(db):
+    antiga_barata = cria_cliente(db, cnpj='70000000001658')
+    cria_proposta(db, antiga_barata, status_cobranca='Pendente', data_criacao_proposta=dias_atras(90), valor=10.0)
+
+    recente_cara = cria_cliente(db, cnpj='70000000001739')
+    cria_proposta(db, recente_cara, status_cobranca='Pendente', data_criacao_proposta=dias_atras(16), valor=5000.0)
+    db.session.commit()
+
+    clientes = montar_painel([antiga_barata, recente_cara], filtro='', q='', ordenar='valor')
+
+    assert [c.id for c in clientes] == [recente_cara.id, antiga_barata.id]
+
+
+def test_ordenar_valor_invalido_cai_no_padrao(db):
+    divida_grande = cria_cliente(db, cnpj='70000000001820', score_prioridade=10)
+    cria_proposta(db, divida_grande, status_cobranca='Pendente', data_criacao_proposta=dias_atras(100), valor=1000.0)
+
+    outro = cria_cliente(db, cnpj='70000000001901', score_prioridade=200)
+    cria_proposta(db, outro, status_cobranca='Pendente', data_criacao_proposta=dias_atras(16), valor=10.0)
+    db.session.commit()
+
+    clientes = montar_painel([divida_grande, outro], filtro='', q='', ordenar='qualquer-coisa-invalida')
+
+    assert [c.id for c in clientes] == [divida_grande.id, outro.id]

@@ -19,6 +19,14 @@ FAIXAS_DIAS_PARADO = (
 )
 CHAVES_FAIXAS_DIAS_PARADO = frozenset(chave for chave, *_ in FAIXAS_DIAS_PARADO)
 
+# Critérios de ordenação disponíveis pro ?ordenar= da tela — o padrão
+# (nenhum valor) é o combinado valor*dias; os outros dois isolam um só
+# critério, pra quem quer especificamente "a mais velha" ou "a mais cara".
+ORDENACOES = {
+    'dias': lambda c: -c.dias_parado_maximo,
+    'valor': lambda c: -c.valor_pendente,
+}
+
 
 def _faixa_de_dias_parado(dias):
     for chave, _rotulo, minimo, maximo in FAIXAS_DIAS_PARADO:
@@ -48,13 +56,16 @@ def resumo_propostas_paradas(clientes):
     return {'total_pendente': total_pendente, 'faixas': faixas}
 
 
-def montar_painel(clientes, filtro, q):
+def montar_painel(clientes, filtro, q, ordenar=None):
     """Retorna só os clientes com proposta parada (dias_parado_maximo >
     CRITICO_DIAS), opcionalmente restritos a uma faixa de dias (?filtro=
-    parada_0_15/15_30/30_60/60_mais), ordenados por valor_pendente *
-    dias_parado_maximo — dinheiro parado ponderado por tempo, não urgência
-    geral de risco (esse conceito de "risco geral" saiu daqui, ver
-    services/priorizacao.py e o Cliente 360 pra isso)."""
+    parada_0_15/15_30/30_60/60_mais).
+
+    Ordenação (?ordenar=): padrão é valor_pendente * dias_parado_maximo —
+    dinheiro parado ponderado por tempo, não urgência geral de risco (esse
+    conceito saiu daqui, ver services/priorizacao.py e o Cliente 360 pra
+    isso). 'dias' ordena só pela mais antiga primeiro, 'valor' só pela de
+    maior valor primeiro — valores fora de ORDENACOES caem no padrão."""
     if q:
         s = q.lower()
         clientes = [c for c in clientes if s in (c.razao_social or '').lower() or s in (c.cnpj or '')]
@@ -64,6 +75,7 @@ def montar_painel(clientes, filtro, q):
     if filtro in CHAVES_FAIXAS_DIAS_PARADO:
         parados = [c for c in parados if _faixa_de_dias_parado(c.dias_parado_maximo) == filtro]
 
-    parados.sort(key=lambda c: -(c.valor_pendente * c.dias_parado_maximo))
+    chave_ordenacao = ORDENACOES.get(ordenar, lambda c: -(c.valor_pendente * c.dias_parado_maximo))
+    parados.sort(key=chave_ordenacao)
 
     return parados

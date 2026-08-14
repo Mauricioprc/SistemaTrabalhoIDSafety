@@ -33,15 +33,16 @@ def cobranca():
 
     q = request.args.get('q', '')
     filtro = request.args.get('filtro', '')  # faixa de dias parado (parada_0_15/15_30/30_60/60_mais)
+    ordenar = request.args.get('ordenar', '')  # '' (padrão valor*dias) / 'dias' / 'valor'
 
     todos_clientes = Cliente.query.options(selectinload(Cliente.propostas)).all()
 
-    clientes_parados = montar_painel(todos_clientes, filtro, q)
+    clientes_parados = montar_painel(todos_clientes, filtro, q, ordenar=ordenar)
     resumo_paradas = resumo_propostas_paradas(todos_clientes)
 
     return render_template('painel_acao.html', clientes=clientes_parados,
                            resumo_paradas=resumo_paradas,
-                           q=q, filtro=filtro, critico_dias=CRITICO_DIAS)
+                           q=q, filtro=filtro, ordenar=ordenar, critico_dias=CRITICO_DIAS)
 
 
 @bp.route('/proposta/<int:id>/status/<status>', methods=['POST'])
