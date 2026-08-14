@@ -1,7 +1,7 @@
 """Helpers de parsing compartilhados pelos importadores de CSV."""
 from datetime import datetime
 
-from app.utils.formatters import limpar_input
+from app.utils.formatters import limpar_cnpj
 
 VAZIOS = ('', '—', '-', 'nan', 'none')
 
@@ -15,7 +15,7 @@ def campo(linha: dict, nome: str) -> str:
 
 
 def cnpj_limpo(linha: dict, nome: str) -> str:
-    return limpar_input(campo(linha, nome))
+    return limpar_cnpj(campo(linha, nome))
 
 
 def parse_data_br(valor: str):

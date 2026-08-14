@@ -31,7 +31,7 @@ def raizen():
     # --- ORDENAÇÃO INTELIGENTE ---
     # 3 = Pedido pendente ou proposta crítica (+15 dias) -> Topo
     # 2 = Tem proposta pendente (sem estar crítica ainda)
-    # 1 = Sem pendência ativa, mas tem pedido/proposta em negociação/cobrado
+    # 1 = Sem pendência ativa, mas tem pedido cobrado
     # 0 = Sem nenhuma pendência
     def get_prioridade(u):
         tem_pedido_pendente = any(p.status == 'Pendente' for p in u.pedidos)
@@ -39,13 +39,12 @@ def raizen():
         cliente = u.cliente_vinculado
         tem_proposta_critica = bool(cliente) and cliente.dias_parado_maximo > CRITICO_DIAS
         tem_proposta_pendente = bool(cliente) and cliente.status_cobranca == 'Pendente'
-        tem_proposta_negociando = bool(cliente) and cliente.status_cobranca == 'Negociando'
 
         if tem_pedido_pendente or tem_proposta_critica:
             return 3
         if tem_proposta_pendente:
             return 2
-        if tem_pedido_cobrado or tem_proposta_negociando:
+        if tem_pedido_cobrado:
             return 1
         return 0
 

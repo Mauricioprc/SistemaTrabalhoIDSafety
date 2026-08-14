@@ -50,7 +50,6 @@
     {% set cliente = unidade.cliente_vinculado %}
     {% set proposta_critica = cliente and cliente.dias_parado_maximo > critico_dias %}
     {% set proposta_pendente = cliente and cliente.status_cobranca == 'Pendente' %}
-    {% set proposta_negociando = cliente and cliente.status_cobranca == 'Negociando' %}
 
     {% if tem_pendencia or proposta_critica %}
         {% set border_color = '#dc3545' if proposta_critica else '#ffc107' %}
@@ -64,7 +63,7 @@
         {% set icon_class = 'bg-warning text-dark' %}
         {% set status_text = 'Proposta pendente' %}
         {% set text_class = 'text-warning' %}
-    {% elif tem_cobrado or proposta_negociando %}
+    {% elif tem_cobrado %}
         {% set border_color = '#0dcaf0' %}  {# Azul #}
         {% set status_icon = 'bi-clock-history' %}
         {% set icon_class = 'bg-info text-dark bg-opacity-25' %}
@@ -144,12 +143,10 @@
                 </div>
 
                 {% if cliente and cliente.propostas %}
-                <div class="d-flex justify-content-between align-items-center mb-3 p-2 rounded-3 {{ 'bg-danger bg-opacity-10' if cliente.valor_pendente > 0 else ('bg-primary bg-opacity-10' if cliente.valor_negociando > 0 else 'bg-success bg-opacity-10') }}">
+                <div class="d-flex justify-content-between align-items-center mb-3 p-2 rounded-3 {{ 'bg-danger bg-opacity-10' if cliente.valor_pendente > 0 else 'bg-success bg-opacity-10' }}">
                     <span class="small fw-bold text-dark"><i class="bi bi-cash-coin me-1"></i>{{ cliente.qtd_pendentes }} proposta(s) pendente(s)</span>
                     {% if cliente.valor_pendente > 0 %}
                         <span class="badge bg-danger">{{ cliente.valor_pendente | moeda }}</span>
-                    {% elif cliente.valor_negociando > 0 %}
-                        <span class="badge bg-primary">{{ cliente.valor_negociando | moeda }}</span>
                     {% else %}
                         <span class="badge bg-success">Ok</span>
                     {% endif %}

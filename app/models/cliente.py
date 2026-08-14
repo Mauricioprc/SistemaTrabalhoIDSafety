@@ -32,20 +32,14 @@ class Cliente(db.Model):
 
     @property
     def status_cobranca(self):
-        """Calculado a partir das propostas: Pendente > Negociando > Ok."""
+        """Calculado a partir das propostas: Pendente > Ok."""
         if any(p.status_cobranca == 'Pendente' for p in self.propostas):
             return 'Pendente'
-        if any(p.status_cobranca == 'Negociando' for p in self.propostas):
-            return 'Negociando'
         return 'Ok'
 
     @property
     def valor_pendente(self):
         return sum(p.valor for p in self.propostas if p.status_cobranca == 'Pendente')
-
-    @property
-    def valor_negociando(self):
-        return sum(p.valor for p in self.propostas if p.status_cobranca == 'Negociando')
 
     @property
     def dias_parado_maximo(self):

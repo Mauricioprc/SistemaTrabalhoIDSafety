@@ -166,12 +166,9 @@ Pedidos aguardando identificação de proposta:<br>
                             {% endif %}
                         </div>
                         <span class="badge bg-secondary mt-2">{{ p.status_cobranca }}</span>
-                        <div class="btn-group btn-group-sm mt-2 w-100">
-                            <form action="/proposta/{{ p.id }}/status/Negociando" method="POST" class="d-inline w-50">
-                                <button type="submit" class="btn btn-outline-info w-100">Negociando</button>
-                            </form>
-                            <form action="/proposta/{{ p.id }}/status/Ok" method="POST" class="d-inline w-50">
-                                <button type="submit" class="btn btn-outline-success w-100">Cobrado</button>
+                        <div class="mt-2 w-100">
+                            <form action="/proposta/{{ p.id }}/status/Ok" method="POST">
+                                <button type="submit" class="btn btn-outline-success w-100">Marcar como Ok</button>
                             </form>
                         </div>
                     </div>

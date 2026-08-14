@@ -4,13 +4,13 @@ ImportadorBase porque seu fluxo (planilha inteira substitui o conjunto de
 propostas ativas, com remoção do que não veio mais) é particular e já
 existia em produção antes da Fase 1 — não deve mudar de comportamento."""
 import io
-import re
 from datetime import datetime
 
 import pandas as pd
 
 from app.extensions import db
 from app.models import Cliente, Proposta
+from app.utils.formatters import limpar_cnpj
 
 
 def _parse_valor_brl(valor_str):
@@ -63,7 +63,7 @@ def importar_propostas(arquivo):
 
     for _, row in df.iterrows():
         cnpj_raw = _campo(row, 'Cnpj/Cpf')
-        cnpj_limpo = re.sub(r'\D', '', cnpj_raw)
+        cnpj_limpo = limpar_cnpj(cnpj_raw)
         if not cnpj_limpo:
             continue
 

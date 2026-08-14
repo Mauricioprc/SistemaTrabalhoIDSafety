@@ -5,6 +5,7 @@ from sqlalchemy.orm import selectinload
 
 from app.extensions import db
 from app.models import Cliente, Proposta
+from app.models.proposta import STATUS_COBRANCA_VALIDOS
 from app.services.importacao.propostas import importar_propostas
 from app.services.painel_acao import montar_painel, resumo_propostas_paradas
 from app.services.priorizacao import CRITICO_DIAS, recalcular_todos
@@ -45,6 +46,10 @@ def cobranca():
 
 @bp.route('/proposta/<int:id>/status/<status>', methods=['POST'])
 def marcar_status_proposta(id, status):
+    if status not in STATUS_COBRANCA_VALIDOS:
+        flash(f'Status inválido: {status}.', 'danger')
+        return redirect(request.referrer or url_for('cobranca.cobranca'))
+
     p = Proposta.query.get(id)
     if p:
         p.status_cobranca = status
@@ -57,6 +62,10 @@ def marcar_status_proposta(id, status):
 
 @bp.route('/cliente/<int:id>/propostas/status/<status>', methods=['POST'])
 def marcar_status_propostas_lote(id, status):
+    if status not in STATUS_COBRANCA_VALIDOS:
+        flash(f'Status inválido: {status}.', 'danger')
+        return redirect(request.referrer or url_for('clientes.detalhe_cliente', id=id))
+
     cliente = Cliente.query.get_or_404(id)
     atualizadas = 0
     agora = datetime.utcnow()

@@ -30,11 +30,17 @@
             <tbody>
                 {% for cliente in clientes %}
                 {% set dias = cliente.dias_parado_maximo %}
-                {% set classe_status = {'Pendente': 'badge-soft-warning', 'Negociando': 'badge-soft-accent', 'Ok': 'badge-soft-success'}[cliente.status_cobranca] %}
+                {% set classe_status = {'Pendente': 'badge-soft-warning', 'Ok': 'badge-soft-success'}[cliente.status_cobranca] %}
                 <tr>
                     <td>
                         <div class="fw-bold text-dark">{{ cliente.razao_social }}</div>
-                        <span class="badge badge-light border">{{ cliente.cnpj | cnpj }}</span>
+                        <span class="badge badge-light border d-inline-flex align-items-center gap-1">
+                            {{ cliente.cnpj | cnpj }}
+                            <button type="button" class="btn btn-link p-0 text-secondary" style="line-height: 1;"
+                                    onclick="copiarComFeedback(this, '{{ cliente.cnpj | cnpj }}')" title="Copiar CNPJ">
+                                <i class="bi bi-clipboard"></i>
+                            </button>
+                        </span>
                     </td>
                     <td><span class="badge {{ classe_status }}">{{ cliente.status_cobranca }}</span></td>
                     <td>

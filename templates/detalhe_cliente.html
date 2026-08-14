@@ -17,6 +17,7 @@
 {% set emails_para_cobranca = emails_pendentes if emails_pendentes else ([cliente.emails_cobranca] if cliente.emails_cobranca else []) %}
 
 {% set propostas_para_lista = propostas_pendentes|sort(attribute='dias_parado', reverse=true) %}
+
 {% set proposta_lista_html %}
 {%- if propostas_para_lista -%}
 {%- for p in propostas_para_lista %}• Proposta #{{ p.numero_proposta }}<br>
@@ -25,6 +26,29 @@
 [ Nenhuma proposta pendente localizada automaticamente — revise manualmente. ]
 {%- endif -%}
 {% endset %}
+
+{# Versão em texto puro da mesma lista, pra body de link mailto/Gmail (\n, não <br>) #}
+{% set linhas_texto = [] %}
+{% for p in propostas_para_lista %}
+{% set _ = linhas_texto.append('• Proposta #' ~ p.numero_proposta) %}
+{% endfor %}
+{% set proposta_lista_texto = linhas_texto | join('\n') if linhas_texto else '[ Nenhuma proposta pendente localizada automaticamente — revise manualmente. ]' %}
+
+{# As 3 mensagens sugeridas, em texto puro (pra Gmail) — a versão com <br> pros cards editáveis está no HTML abaixo #}
+{% set corpo_msg1 = 'Boa tarde,\n\nNotei que as propostas abaixo da ' ~ cliente.razao_social ~ ' ainda estão em aberto:\n\n' ~ proposta_lista_texto ~ '\n\nPoderia confirmar se já há uma definição? Fico à disposição para qualquer dúvida.' %}
+{% set assunto_msg1 = 'Propostas em aberto - ' ~ cliente.razao_social %}
+
+{% set corpo_msg2 = 'Boa tarde,\n\nReforçando o lembrete: as propostas abaixo da ' ~ cliente.razao_social ~ ' seguem pendentes de aprovação:\n\n' ~ proposta_lista_texto ~ '\n\nPreciso da aprovação para seguirmos com o pedido. Qualquer dúvida, me avise.' %}
+{% set assunto_msg2 = 'Lembrete: Propostas Pendentes de Aprovação' %}
+
+{% set corpo_msg3 = 'Boa tarde,\n\nAs propostas abaixo da ' ~ cliente.razao_social ~ ' seguem pendentes' ~ (', a mais antiga há ' ~ proposta_mais_antiga.dias_parado ~ ' dias' if proposta_mais_antiga else '') ~ ':\n\n' ~ proposta_lista_texto ~ '\n\nPreciso de um retorno para darmos andamento. Podemos alinhar hoje?' %}
+{% set assunto_msg3 = 'Propostas pendentes - retorno necessário - ' ~ cliente.razao_social %}
+
+{% set dias_mais_antiga = proposta_mais_antiga.dias_parado if proposta_mais_antiga else 0 %}
+{% set template_sugerido = 'msg3' if dias_mais_antiga > critico_dias else ('msg2' if dias_mais_antiga >= 7 else 'msg1') %}
+{% set corpo_sugerido = {'msg1': corpo_msg1, 'msg2': corpo_msg2, 'msg3': corpo_msg3}[template_sugerido] %}
+{% set assunto_sugerido = {'msg1': assunto_msg1, 'msg2': assunto_msg2, 'msg3': assunto_msg3}[template_sugerido] %}
+{% set gmail_link_sugerido = 'https://mail.google.com/mail/?view=cm&fs=1&to=' ~ (emails_para_cobranca | join(',') | urlencode) ~ '&su=' ~ (assunto_sugerido | urlencode) ~ '&body=' ~ (corpo_sugerido | urlencode) %}
 
 <a href="/cobranca" class="text-decoration-none text-muted fw-bold small mb-2 d-inline-block">
     <i class="bi bi-arrow-left me-1"></i> Voltar para o Painel de ação
@@ -35,7 +59,13 @@
     <div class="card-body p-4 d-flex justify-content-between align-items-start flex-wrap gap-3">
         <div>
             <h3 class="fw-bold text-dark mb-1">{{ cliente.razao_social }}</h3>
-            <span class="badge badge-light border me-1">{{ cliente.cnpj | cnpj }}</span>
+            <span class="badge badge-light border me-1 d-inline-flex align-items-center gap-1">
+                {{ cliente.cnpj | cnpj }}
+                <button type="button" class="btn btn-link p-0 text-secondary" style="line-height: 1;"
+                        onclick="copiarComFeedback(this, '{{ cliente.cnpj | cnpj }}')" title="Copiar CNPJ">
+                    <i class="bi bi-clipboard"></i>
+                </button>
+            </span>
             {% if cliente.classe_abc_atual %}
             <span class="badge badge-light border me-1">
                 Classe {{ cliente.classe_abc_atual.classe }}
@@ -120,9 +150,9 @@
             <div class="card-header bg-light fw-bold text-muted small border-bottom d-flex justify-content-between align-items-center">
                 <span>PROPOSTAS ({{ cliente.propostas | length }}) — ordenadas por tempo parado</span>
                 {% if propostas_pendentes | length > 1 %}
-                <form action="/cliente/{{ cliente.id }}/propostas/status/Negociando" method="POST" class="d-inline">
-                    <button type="submit" class="btn btn-sm btn-outline-info">
-                        <i class="bi bi-people-fill me-1"></i> Marcar todas como Negociando
+                <form action="/cliente/{{ cliente.id }}/propostas/status/Ok" method="POST" class="d-inline">
+                    <button type="submit" class="btn btn-sm btn-outline-success">
+                        <i class="bi bi-check-all me-1"></i> Marcar todas como Ok
                     </button>
                 </form>
                 {% endif %}
@@ -131,7 +161,7 @@
                 <div class="row g-3">
                     {% for p in propostas_ordenadas %}
                     {% set dias = p.dias_parado %}
-                    {% set classe_status = {'Pendente': 'badge-soft-warning', 'Negociando': 'badge-soft-accent', 'Ok': 'badge-soft-success'}[p.status_cobranca] %}
+                    {% set classe_status = {'Pendente': 'badge-soft-warning', 'Ok': 'badge-soft-success'}[p.status_cobranca] %}
                     <div class="col-md-6">
                         <div class="card border shadow-sm {{ 'border-danger' if p.status_cobranca == 'Pendente' and dias > critico_dias }}">
                             <div class="card-body">
@@ -146,16 +176,16 @@
                                     {% endif %}
                                 </div>
                                 <span class="badge {{ classe_status }} mt-2">{{ p.status_cobranca }}</span>
-                                <div class="btn-group btn-group-sm mt-2 w-100">
-                                    <form action="/proposta/{{ p.id }}/status/Negociando" method="POST" class="d-inline w-50">
-                                        <button type="submit" class="btn btn-outline-info w-100">Negociando</button>
-                                    </form>
-                                    <form action="/proposta/{{ p.id }}/status/Ok" method="POST" class="d-inline w-50">
-                                        <button type="submit" class="btn btn-outline-success w-100">Ok</button>
+                                <div class="mt-2 w-100">
+                                    <form action="/proposta/{{ p.id }}/status/Ok" method="POST">
+                                        <button type="submit" class="btn btn-outline-success w-100">Marcar como Ok</button>
                                     </form>
                                 </div>
                                 {% if p.email_aprov %}
-                                <a href="mailto:{{ p.email_aprov }}?subject=Proposta {{ p.numero_proposta }} Pendente - {{ cliente.razao_social }}" class="btn btn-sm btn-outline-secondary w-100 mt-1">
+                                {% set assunto_proposta = 'Proposta ' ~ p.numero_proposta ~ ' pendente - ' ~ cliente.razao_social %}
+                                {% set corpo_proposta = 'Olá,\n\nAinda não recebemos retorno sobre a proposta #' ~ p.numero_proposta ~ ' (' ~ (p.valor | moeda) ~ ') da ' ~ cliente.razao_social ~ '. Poderia confirmar a situação?' %}
+                                <a href="https://mail.google.com/mail/?view=cm&fs=1&to={{ p.email_aprov | urlencode }}&su={{ assunto_proposta | urlencode }}&body={{ corpo_proposta | urlencode }}"
+                                   target="_blank" class="btn btn-sm btn-outline-secondary w-100 mt-1">
                                     <i class="bi bi-envelope"></i> Cobrar esta proposta
                                 </a>
                                 {% endif %}
@@ -186,8 +216,6 @@
         </div>
 
         <!-- GERADOR DE MENSAGEM (SECUNDÁRIO / COLAPSÁVEL) -->
-        {% set dias_mais_antiga = proposta_mais_antiga.dias_parado if proposta_mais_antiga else 0 %}
-        {% set template_sugerido = 'msg3' if dias_mais_antiga > critico_dias else ('msg2' if dias_mais_antiga >= 7 else 'msg1') %}
         <div class="accordion" id="accordionMensagem">
             <div class="accordion-item border shadow-sm rounded overflow-hidden">
                 <h2 class="accordion-header">
@@ -213,13 +241,10 @@
                                     </div>
                                 </div>
                                 <div class="bg-white p-3 rounded border text-muted small fst-italic editable-area" id="msg1" contenteditable="true">
-                                    Boa noite,<br><br>
-                                    Espero que esteja bem!<br><br>
-                                    Estou fazendo uma revisão nas propostas comerciais em aberto da <strong>{{ cliente.razao_social }}</strong> e notei que ainda não recebemos um retorno referente às propostas detalhadas abaixo:<br><br>
+                                    Boa tarde,<br><br>
+                                    Notei que as propostas abaixo da <strong>{{ cliente.razao_social }}</strong> ainda estão em aberto:<br><br>
                                     {{ proposta_lista_html }}<br>
-                                    Poderia, por gentileza, me informar se houve alguma definição?<br>
-                                    Caso haja necessidade de esclarecimentos, estou à disposição.<br><br>
-                                    Desde já agradeço pela atenção e aguardo seu retorno.
+                                    Poderia confirmar se já há uma definição? Fico à disposição para qualquer dúvida.
                                 </div>
                             </div>
                         </div>
@@ -235,13 +260,10 @@
                                 </div>
                                 <div class="bg-white p-3 rounded border text-muted small fst-italic editable-area" id="msg2" contenteditable="true">
                                     <strong>Assunto: Lembrete: Propostas Pendentes de Aprovação</strong><br><br>
-                                    Boa tarde, Prezado(a),<br><br>
-                                    Espero que você esteja bem!<br><br>
-                                    Gostaria de fazer um lembrete sobre as propostas que estão pendentes de sua aprovação, conforme segue:<br><br>
+                                    Boa tarde,<br><br>
+                                    Reforçando o lembrete: as propostas abaixo da <strong>{{ cliente.razao_social }}</strong> seguem pendentes de aprovação:<br><br>
                                     {{ proposta_lista_html }}<br>
-                                    Agradecemos sua atenção, pois sua aprovação é fundamental para darmos continuidade aos nossos projetos.<br>
-                                    Se precisar de mais informações ou tiver alguma dúvida, estou à disposição para ajudar.<br><br>
-                                    Agradeço desde já pela sua colaboração e fico no aguardo de sua resposta.
+                                    Preciso da aprovação para seguirmos com o pedido. Qualquer dúvida, me avise.
                                 </div>
                             </div>
                         </div>
@@ -256,19 +278,17 @@
                                     </div>
                                 </div>
                                 <div class="bg-white p-3 rounded border text-muted small fst-italic editable-area" id="msg3" contenteditable="true">
-                                    Boa tarde.<br><br>
-                                    Reiteramos nosso contato anterior a respeito das propostas da <strong>{{ cliente.razao_social }}</strong> que ainda constam como pendentes de aprovação{% if proposta_mais_antiga %}, a mais antiga já parada há <strong>{{ proposta_mais_antiga.dias_parado }} dias</strong>{% endif %}:<br><br>
+                                    Boa tarde,<br><br>
+                                    As propostas abaixo da <strong>{{ cliente.razao_social }}</strong> seguem pendentes{% if proposta_mais_antiga %}, a mais antiga há <strong>{{ proposta_mais_antiga.dias_parado }} dias</strong>{% endif %}:<br><br>
                                     {{ proposta_lista_html }}<br>
-                                    Reforçamos a importância de sua análise para que possamos dar continuidade às etapas seguintes com a excelência que prezamos em nosso atendimento.<br><br>
-                                    Permanecemos à disposição para qualquer esclarecimento ou suporte adicional que se faça necessário.<br>
-                                    Agradecemos desde já pela atenção e confiança depositadas em nosso trabalho.
+                                    Preciso de um retorno para darmos andamento. Podemos alinhar hoje?
                                 </div>
                             </div>
                         </div>
 
                         <div class="d-grid mt-4">
-                            <a href="mailto:{{ emails_para_cobranca | join(',') }}?subject=Propostas Pendentes - {{ cliente.razao_social }}" class="btn btn-orange-custom text-white fw-bold py-3 shadow-sm">
-                                <i class="bi bi-envelope-fill me-2"></i> Abrir E-mail (Sem texto)
+                            <a href="{{ gmail_link_sugerido }}" target="_blank" class="btn btn-orange-custom text-white fw-bold py-3 shadow-sm">
+                                <i class="bi bi-envelope-fill me-2"></i> Abrir no Gmail (com o texto sugerido)
                             </a>
                             <small class="text-muted text-center mt-1">
                                 {% if emails_pendentes %}Destinatários das propostas pendentes: {{ emails_pendentes | join(', ') }}
@@ -301,7 +321,7 @@
                     </a>
                     {% endif %}
                     {% if emails_para_cobranca %}
-                    <a href="mailto:{{ emails_para_cobranca | join(',') }}?subject=Propostas Pendentes - {{ cliente.razao_social }}" class="btn btn-outline-primary-custom flex-fill">
+                    <a href="{{ gmail_link_sugerido }}" target="_blank" class="btn btn-outline-primary-custom flex-fill">
                         <i class="bi bi-envelope"></i> E-mail
                     </a>
                     {% endif %}

@@ -1,6 +1,10 @@
 from datetime import datetime
 
+from sqlalchemy.orm import validates
+
 from app.extensions import db
+
+STATUS_COBRANCA_VALIDOS = ('Pendente', 'Ok')
 
 
 class Unidade(db.Model):
@@ -20,11 +24,11 @@ class Proposta(db.Model):
     numero_proposta = db.Column(db.String(50), unique=True, nullable=False)
     valor = db.Column(db.Float, default=0.0)
     data_criacao_proposta = db.Column(db.DateTime)
-    status_cobranca = db.Column(db.String(50), default='Pendente')  # Pendente / Negociando / Ok
+    status_cobranca = db.Column(db.String(50), default='Pendente')  # Pendente / Ok — "Negociando" foi removido
     # Atualizada toda vez que status_cobranca muda (ver marcar_status_proposta
     # e marcar_status_propostas_lote em app/routes/cobranca.py). dias_parado
-    # conta a partir daqui, não da criação — senão uma proposta "Negociando"
-    # continuaria acumulando dias como se nunca tivesse sido tocada.
+    # conta a partir daqui, não da criação — senão uma proposta que mudou de
+    # status continuaria acumulando dias como se nunca tivesse sido tocada.
     data_ultima_mudanca_status = db.Column(db.DateTime, nullable=True)
     contato = db.Column(db.String(100))
     celular = db.Column(db.String(20))
@@ -34,6 +38,12 @@ class Proposta(db.Model):
     email_nf = db.Column(db.Text)
     vendedor = db.Column(db.String(100))
     cliente_id = db.Column(db.Integer, db.ForeignKey('cliente.id'), nullable=False)
+
+    @validates('status_cobranca')
+    def _valida_status_cobranca(self, _key, valor):
+        if valor not in STATUS_COBRANCA_VALIDOS:
+            raise ValueError(f"status_cobranca inválido: {valor!r} (só {STATUS_COBRANCA_VALIDOS})")
+        return valor
 
     @property
     def dias_parado(self):

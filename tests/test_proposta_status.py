@@ -1,6 +1,10 @@
 """dias_parado precisa resetar quando o status da proposta muda — antes
-contava sempre a partir de data_criacao_proposta, então uma proposta
-"Negociando" continuava acumulando dias como se nunca tivesse sido tocada."""
+contava sempre a partir de data_criacao_proposta, então uma proposta que
+mudava de status continuava acumulando dias como se nunca tivesse sido
+tocada. Também cobre a remoção do status "Negociando": só Pendente/Ok são
+aceitos agora (validação no model e nas rotas)."""
+import pytest
+
 from app.extensions import db
 from app.models import Proposta
 from tests.conftest import cria_cliente, cria_proposta, dias_atras
@@ -27,7 +31,7 @@ def test_dias_parado_reseta_quando_data_ultima_mudanca_status_e_atualizada(db):
     assert proposta.dias_parado == 30  # antes de mudar, conta da criação
 
     from datetime import datetime
-    proposta.status_cobranca = 'Negociando'
+    proposta.status_cobranca = 'Ok'
     proposta.data_ultima_mudanca_status = datetime.utcnow()
     db.session.commit()
 
@@ -45,11 +49,11 @@ def test_marcar_status_proposta_seta_data_ultima_mudanca_status(client, db):
     with client.session_transaction() as sess:
         sess['autenticado'] = True
 
-    resposta = client.post(f'/proposta/{proposta_id}/status/Negociando', follow_redirects=True)
+    resposta = client.post(f'/proposta/{proposta_id}/status/Ok', follow_redirects=True)
     assert resposta.status_code == 200
 
     atualizada = db.session.get(Proposta, proposta_id)
-    assert atualizada.status_cobranca == 'Negociando'
+    assert atualizada.status_cobranca == 'Ok'
     assert atualizada.data_ultima_mudanca_status is not None
     assert atualizada.dias_parado == 0
 
@@ -65,11 +69,37 @@ def test_marcar_status_propostas_lote_seta_data_ultima_mudanca_status(client, db
     with client.session_transaction() as sess:
         sess['autenticado'] = True
 
-    resposta = client.post(f'/cliente/{cliente.id}/propostas/status/Negociando', follow_redirects=True)
+    resposta = client.post(f'/cliente/{cliente.id}/propostas/status/Ok', follow_redirects=True)
     assert resposta.status_code == 200
 
     for proposta_id in (p1.id, p2.id):
         atualizada = db.session.get(Proposta, proposta_id)
-        assert atualizada.status_cobranca == 'Negociando'
+        assert atualizada.status_cobranca == 'Ok'
         assert atualizada.data_ultima_mudanca_status is not None
         assert atualizada.dias_parado == 0
+
+
+def test_model_rejeita_status_negociando(db):
+    cliente = cria_cliente(db, cnpj='50000000000515')
+    proposta = cria_proposta(db, cliente, status_cobranca='Pendente')
+    db.session.commit()
+
+    with pytest.raises(ValueError):
+        proposta.status_cobranca = 'Negociando'
+
+
+def test_rota_marcar_status_proposta_rejeita_status_invalido(client, db):
+    cliente = cria_cliente(db, cnpj='50000000000606')
+    proposta = cria_proposta(db, cliente, status_cobranca='Pendente')
+    db.session.commit()
+    proposta_id = proposta.id
+
+    with client.session_transaction() as sess:
+        sess['autenticado'] = True
+
+    resposta = client.post(f'/proposta/{proposta_id}/status/Negociando', follow_redirects=True)
+    assert resposta.status_code == 200
+
+    inalterada = db.session.get(Proposta, proposta_id)
+    assert inalterada.status_cobranca == 'Pendente'
+    assert inalterada.data_ultima_mudanca_status is None

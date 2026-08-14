@@ -61,6 +61,18 @@
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>setTimeout(function() { let alerts = document.querySelectorAll('.alert'); alerts.forEach(function(alert) { var bsAlert = new bootstrap.Alert(alert); bsAlert.close(); }); }, 4000);</script>
+    <script>
+        // Copia `texto` e troca o ícone do botão clicado por um check por 1s.
+        function copiarComFeedback(botao, texto) {
+            navigator.clipboard.writeText(texto).then(function() {
+                var icone = botao.querySelector('i');
+                if (!icone) return;
+                var original = icone.className;
+                icone.className = 'bi bi-check-lg text-success';
+                setTimeout(function() { icone.className = original; }, 1000);
+            });
+        }
+    </script>
     {% block scripts %}{% endblock %}
 </body>
 </html>
