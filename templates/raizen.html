@@ -17,16 +17,17 @@
     </div>
 </div>
 
-<div class="card border shadow-sm mb-5" style="border-radius: 12px;">
+<div class="card border shadow-sm mb-4" style="border-radius: 12px;">
     <div class="card-body p-2">
         <form action="/raizen" method="GET" class="row g-0 align-items-center">
+            <input type="hidden" name="filtro" value="{{ filtro }}">
             <div class="col-md-10">
                 <div class="input-group input-group-lg">
                     <span class="input-group-text bg-white border-0 ps-4 text-muted">
                         <i class="bi bi-search"></i>
                     </span>
-                    <input type="text" name="q" class="form-control border-0 ps-3 fw-medium" 
-                           placeholder="Busque por Nome, Cidade ou CNPJ..." 
+                    <input type="text" name="q" class="form-control border-0 ps-3 fw-medium"
+                           placeholder="Busque por Nome, Cidade ou CNPJ..."
                            value="{{ q }}" style="box-shadow: none;">
                 </div>
             </div>
@@ -34,7 +35,7 @@
                 <div class="d-grid gap-2">
                     <button type="submit" class="btn btn-primary-custom fw-bold" style="border-radius: 8px;">Buscar</button>
                     {% if q %}
-                        <a href="/raizen" class="btn btn-light text-muted btn-sm">Limpar</a>
+                        <a href="{{ url_for('raizen.raizen', filtro=filtro) }}" class="btn btn-light text-muted btn-sm">Limpar</a>
                     {% endif %}
                 </div>
             </div>
@@ -42,14 +43,34 @@
     </div>
 </div>
 
+<!-- FILTRO DE PENDÊNCIA -->
+<div class="d-flex gap-2 flex-wrap mb-5">
+    <a class="btn btn-sm rounded-pill fw-bold px-3 {{ 'btn-primary-custom' if not filtro else 'btn-outline-secondary' }}"
+       href="{{ url_for('raizen.raizen', q=q) }}">
+        Todas <span class="badge badge-light border ms-1">{{ contagens_filtro.total }}</span>
+    </a>
+    <a class="btn btn-sm rounded-pill fw-bold px-3 {{ 'btn-primary-custom' if filtro == 'pedidos' else 'btn-outline-secondary' }}"
+       href="{{ url_for('raizen.raizen', q=q, filtro='pedidos') }}">
+        <i class="bi bi-file-earmark-arrow-up me-1"></i> Pedidos pendentes <span class="badge badge-light border ms-1">{{ contagens_filtro.pedidos }}</span>
+    </a>
+    <a class="btn btn-sm rounded-pill fw-bold px-3 {{ 'btn-primary-custom' if filtro == 'propostas' else 'btn-outline-secondary' }}"
+       href="{{ url_for('raizen.raizen', q=q, filtro='propostas') }}">
+        <i class="bi bi-cash-coin me-1"></i> Proposta pendente <span class="badge badge-light border ms-1">{{ contagens_filtro.propostas }}</span>
+    </a>
+    <a class="btn btn-sm rounded-pill fw-bold px-3 {{ 'btn-primary-custom' if filtro == 'ambos' else 'btn-outline-secondary' }}"
+       href="{{ url_for('raizen.raizen', q=q, filtro='ambos') }}">
+        <i class="bi bi-exclamation-diamond me-1"></i> Ambos <span class="badge badge-light border ms-1">{{ contagens_filtro.ambos }}</span>
+    </a>
+</div>
+
 <div class="row g-4">
     {% for unidade in unidades %}
     
-    {% set tem_pendencia = unidade.pedidos | selectattr("status", "equalto", "Pendente") | list | length > 0 %}
+    {% set tem_pendencia = unidade.tem_pedido_pendente %}
     {% set tem_cobrado = unidade.pedidos | selectattr("status", "equalto", "Cobrado") | list | length > 0 %}
     {% set cliente = unidade.cliente_vinculado %}
     {% set proposta_critica = cliente and cliente.dias_parado_maximo > critico_dias %}
-    {% set proposta_pendente = cliente and cliente.status_cobranca == 'Pendente' %}
+    {% set proposta_pendente = unidade.tem_proposta_pendente %}
 
     {% if tem_pendencia or proposta_critica %}
         {% set border_color = '#dc3545' if proposta_critica else '#ffc107' %}
@@ -230,7 +251,12 @@
 
     {% else %}
     <div class="col-12 text-center py-5">
+        <i class="bi bi-search fs-2 d-block mb-2 text-muted opacity-50"></i>
         <h4 class="fw-bold text-muted">Nenhuma unidade encontrada</h4>
+        {% if filtro %}
+        <p class="text-muted small mb-0">Nenhuma unidade bate com o filtro selecionado{{ ' e a busca "' ~ q ~ '"' if q else '' }}.</p>
+        <a href="{{ url_for('raizen.raizen', q=q) }}" class="btn btn-sm btn-outline-secondary mt-2">Limpar filtro</a>
+        {% endif %}
     </div>
     {% endfor %}
 </div>
@@ -282,7 +308,7 @@
                         <label class="fw-bold mb-1 text-dark">Unidade Responsável *</label>
                         <select name="unidade_id" id="selectUnidadePedido" class="form-select" required>
                             <option value="" disabled selected>Selecione...</option>
-                            {% for u in unidades %}
+                            {% for u in unidades_para_modal %}
                                 <option value="{{ u.id }}">{{ u.nome }} - {{ u.cidade }}</option>
                             {% endfor %}
                         </select>

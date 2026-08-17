@@ -63,6 +63,24 @@ def _motivo(tipo, texto):
     return {'tipo': tipo, 'texto': texto, 'classe_css': CLASSE_CSS_POR_TIPO_MOTIVO[tipo]}
 
 
+def dias_atraso_frequencia(retencao):
+    """Regra única de "atraso de frequência de compra": dias desde o último
+    pedido acima do esperado pra frequência de compra do cliente. Usada tanto
+    pelo score de priorização (abaixo) quanto pelo Radar (services/radar.py)
+    — antes cada um tinha sua própria cópia da mesma conta, risco de uma
+    mudar (ex.: os pesos em DIAS_ESPERADOS_POR_FREQUENCIA) e a outra ficar
+    pra trás sem ninguém perceber.
+
+    Retorna (dias, esperado) se estiver em atraso, None caso contrário."""
+    if not retencao or retencao.frequencia_compra not in DIAS_ESPERADOS_POR_FREQUENCIA:
+        return None
+    esperado = DIAS_ESPERADOS_POR_FREQUENCIA[retencao.frequencia_compra]
+    dias = retencao.dias_desde_ultimo_pedido or 0
+    if dias > esperado:
+        return dias, esperado
+    return None
+
+
 def calcular_score(cliente: Cliente) -> ScoreResultado:
     score = 0
     motivos = []
@@ -82,15 +100,14 @@ def calcular_score(cliente: Cliente) -> ScoreResultado:
         score += PESO_ALERTA_NPS_BAIXO_CLASSE_A
         motivos.append(_motivo('nps_baixo', f'Alerta: nota NPS {nota_recente.nota} em cliente Classe A'))
 
-    if retencao and retencao.frequencia_compra in DIAS_ESPERADOS_POR_FREQUENCIA:
-        esperado = DIAS_ESPERADOS_POR_FREQUENCIA[retencao.frequencia_compra]
-        dias = retencao.dias_desde_ultimo_pedido or 0
-        if dias > esperado:
-            score += PESO_ATRASO_FREQUENCIA_COMPRA
-            motivos.append(_motivo(
-                'atraso_frequencia',
-                f'Sem pedido há {dias} dias (frequência {retencao.frequencia_compra}, '
-                f'esperado até {esperado} dias)'))
+    atraso = dias_atraso_frequencia(retencao)
+    if atraso:
+        dias, esperado = atraso
+        score += PESO_ATRASO_FREQUENCIA_COMPRA
+        motivos.append(_motivo(
+            'atraso_frequencia',
+            f'Sem pedido há {dias} dias (frequência {retencao.frequencia_compra}, '
+            f'esperado até {esperado} dias)'))
 
     dias_parado = cliente.dias_parado_maximo
     if dias_parado > CRITICO_DIAS:

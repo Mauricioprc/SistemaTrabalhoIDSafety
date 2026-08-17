@@ -46,6 +46,28 @@ Pedidos aguardando identificação de proposta:<br>
     </div>
 </div>
 
+<!-- FILTRO DE PENDÊNCIA — mesmo conceito da lista de unidades (/raizen),
+     aqui controla só a visibilidade das seções Propostas e Precisa de Ação
+     (Aguardando Retorno e Histórico continuam sempre visíveis). -->
+<div class="d-flex gap-2 flex-wrap mb-4">
+    <a class="btn btn-sm rounded-pill fw-bold px-3 {{ 'btn-primary-custom' if not filtro else 'btn-outline-secondary' }}"
+       href="{{ url_for('raizen.detalhe_unidade', id=unidade.id) }}">
+        Todas
+    </a>
+    <a class="btn btn-sm rounded-pill fw-bold px-3 {{ 'btn-primary-custom' if filtro == 'pedidos' else 'btn-outline-secondary' }}"
+       href="{{ url_for('raizen.detalhe_unidade', id=unidade.id, filtro='pedidos') }}">
+        <i class="bi bi-file-earmark-arrow-up me-1"></i> Pedidos pendentes <span class="badge badge-light border ms-1">{{ pendentes | length }}</span>
+    </a>
+    <a class="btn btn-sm rounded-pill fw-bold px-3 {{ 'btn-primary-custom' if filtro == 'propostas' else 'btn-outline-secondary' }}"
+       href="{{ url_for('raizen.detalhe_unidade', id=unidade.id, filtro='propostas') }}">
+        <i class="bi bi-cash-coin me-1"></i> Proposta pendente <span class="badge badge-light border ms-1">{{ qtd_propostas_pendentes }}</span>
+    </a>
+    <a class="btn btn-sm rounded-pill fw-bold px-3 {{ 'btn-primary-custom' if filtro == 'ambos' else 'btn-outline-secondary' }}"
+       href="{{ url_for('raizen.detalhe_unidade', id=unidade.id, filtro='ambos') }}">
+        <i class="bi bi-exclamation-diamond me-1"></i> Ambos
+    </a>
+</div>
+
 <div class="row g-4">
     
     <div class="col-lg-4">
@@ -141,6 +163,7 @@ Pedidos aguardando identificação de proposta:<br>
 
     <div class="col-lg-8">
 
+        {% if mostrar_propostas %}
         {% if cliente and cliente.propostas %}
         <div class="d-flex justify-content-between align-items-center mb-3 ps-1">
             <h6 class="fw-bold text-dark mb-0">💰 Propostas ({{ cliente.propostas | length }})</h6>
@@ -177,7 +200,9 @@ Pedidos aguardando identificação de proposta:<br>
             {% endfor %}
         </div>
         {% endif %}
+        {% endif %}
 
+        {% if mostrar_pedidos_pendentes %}
         <h6 class="fw-bold text-dark mb-3 ps-1">⚠️ Precisa de Ação ({{ pendentes|length }})</h6>
         {% if pendentes %}
             {% for pedido in pendentes %}
@@ -210,6 +235,14 @@ Pedidos aguardando identificação de proposta:<br>
                 <i class="bi bi-check-circle fs-4 d-block mb-2 text-success opacity-50"></i>
                 Nenhuma pendência para cobrar!
             </div>
+        {% endif %}
+        {% endif %}
+
+        {% if not mostrar_propostas or not mostrar_pedidos_pendentes %}
+        <div class="alert alert-light border small text-muted mb-4">
+            <i class="bi bi-funnel me-1"></i> Filtro ativo — algumas seções desta unidade estão ocultas.
+            <a href="{{ url_for('raizen.detalhe_unidade', id=unidade.id) }}" class="fw-bold text-decoration-none">Mostrar tudo</a>
+        </div>
         {% endif %}
 
         <h6 class="fw-bold text-dark mb-3 mt-4 ps-1">📨 Aguardando Retorno ({{ cobrados|length }})</h6>

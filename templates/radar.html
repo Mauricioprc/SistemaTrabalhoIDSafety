@@ -8,31 +8,123 @@
         <p class="text-muted mb-0">Sinais secundários — clientes comprando menos que o esperado e clientes novos sem primeiro contato.</p>
     </div>
     <form method="GET" class="d-flex">
-        <input type="text" name="q" class="form-control form-control-sm" placeholder="Buscar cliente/CNPJ..." value="{{ q }}" style="width: 220px;">
+        <div class="input-group input-group-sm" style="width: 260px;">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input type="text" name="q" class="form-control" placeholder="Buscar cliente/CNPJ..." value="{{ q }}">
+        </div>
     </form>
+</div>
+
+<!-- RESUMO -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm h-100" style="border-radius: 12px;">
+            <div class="card-body p-3 d-flex align-items-center gap-3">
+                <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                     style="width: 44px; height: 44px; background: var(--bg-warning); color: var(--text-warning);">
+                    <i class="bi bi-hourglass-split fs-5"></i>
+                </div>
+                <div>
+                    <div class="fs-4 fw-bold text-dark lh-1">{{ sem_comprar | length }}</div>
+                    <div class="small text-muted">Sem comprar</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm h-100" style="border-radius: 12px;">
+            <div class="card-body p-3 d-flex align-items-center gap-3">
+                <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                     style="width: 44px; height: 44px; background: var(--bg-danger); color: var(--text-danger);">
+                    <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+                </div>
+                <div>
+                    <div class="fs-4 fw-bold text-dark lh-1">{{ qtd_criticos }}</div>
+                    <div class="small text-muted">Casos críticos (2x o esperado)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm h-100" style="border-radius: 12px;">
+            <div class="card-body p-3 d-flex align-items-center gap-3">
+                <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                     style="width: 44px; height: 44px; background: var(--bg-accent); color: var(--text-accent);">
+                    <i class="bi bi-person-plus-fill fs-5"></i>
+                </div>
+                <div>
+                    <div class="fs-4 fw-bold text-dark lh-1">{{ novos | length }}</div>
+                    <div class="small text-muted">Clientes novos</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm h-100" style="border-radius: 12px;">
+            <div class="card-body p-3 d-flex align-items-center gap-3">
+                <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                     style="width: 44px; height: 44px; background: #f1f3f5; color: var(--text-main);">
+                    <i class="bi bi-broadcast fs-5"></i>
+                </div>
+                <div>
+                    <div class="fs-4 fw-bold text-dark lh-1">{{ (sem_comprar | length) + (novos | length) }}</div>
+                    <div class="small text-muted">Total no Radar</div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <div class="row g-4">
     <!-- SEM COMPRAR -->
     <div class="col-lg-6">
         <div class="card border-0 shadow-sm h-100" style="border-radius: 12px;">
-            <div class="card-header bg-light fw-bold text-muted small border-bottom d-flex justify-content-between align-items-center">
+            <div class="card-header bg-light fw-bold text-muted small border-bottom d-flex justify-content-between align-items-center py-3">
                 <span><i class="bi bi-hourglass-split me-1"></i> SEM COMPRAR ({{ sem_comprar | length }})</span>
+                <span class="text-muted fw-normal" style="letter-spacing: normal; text-transform: none;">mais atrasados primeiro</span>
             </div>
-            <div class="card-body" style="max-height: 600px; overflow-y: auto;">
+            <div class="list-group list-group-flush" style="max-height: 620px; overflow-y: auto;">
                 {% for item in sem_comprar %}
-                <div class="d-flex justify-content-between align-items-center border-bottom py-2">
-                    <div>
-                        <div class="fw-bold small text-dark">{{ item.cliente.razao_social }}</div>
-                        <span class="badge badge-light border">{{ item.cliente.cnpj | cnpj }}</span>
+                {% set proporcao = (item.dias / item.esperado) if item.esperado else 1 %}
+                {% set critico = proporcao >= fator_critico %}
+                <div class="list-group-item px-3 py-3 border-start border-4"
+                     style="border-left-color: {{ 'var(--text-danger)' if critico else 'var(--text-warning)' }} !important;">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <div style="flex: 1 1 200px; min-width: 0;">
+                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                <span class="fw-bold text-dark text-truncate">{{ item.cliente.razao_social }}</span>
+                                {% if item.cliente.score_prioridade %}
+                                <span class="badge {{ 'badge-soft-danger' if item.cliente.score_prioridade >= 100 else ('badge-soft-warning' if item.cliente.score_prioridade >= 50 else 'badge-light') }}" title="Score de priorização">
+                                    {{ item.cliente.score_prioridade }}
+                                </span>
+                                {% endif %}
+                            </div>
+                            <span class="badge badge-light border">{{ item.cliente.cnpj | cnpj }}</span>
+                        </div>
+
+                        <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                            <a href="/cliente/{{ item.cliente.id }}" class="btn btn-sm btn-outline-primary-custom">
+                                Ver <i class="bi bi-arrow-right ms-1"></i>
+                            </a>
+                        </div>
                     </div>
-                    <div class="d-flex align-items-center gap-2">
-                        <span class="badge badge-soft-warning">{{ item.dias }}d (esperado até {{ item.esperado }}d)</span>
-                        <a href="/cliente/{{ item.cliente.id }}" class="btn btn-sm btn-outline-primary-custom">Ver</a>
+
+                    <!-- barra proporcional: dias decorridos vs esperado -->
+                    <div class="d-flex align-items-center gap-2 mt-2">
+                        <div class="flex-grow-1 rounded-pill" style="height: 6px; background: #eef0f2; overflow: hidden;">
+                            <div class="h-100 rounded-pill" style="width: {{ [proporcao * 100, 100] | min }}%; background: {{ 'var(--text-danger)' if critico else 'var(--text-warning)' }};"></div>
+                        </div>
+                        <span class="small text-muted flex-shrink-0" style="white-space: nowrap;">
+                            <strong class="{{ 'text-danger' if critico else '' }}">{{ item.dias }}d</strong> sem comprar
+                            <span class="text-muted">· esperado até {{ item.esperado }}d</span>
+                        </span>
                     </div>
                 </div>
                 {% else %}
-                <div class="text-center text-muted small py-4">Nenhum cliente comprando abaixo do esperado.</div>
+                <div class="text-center text-muted py-5">
+                    <i class="bi bi-emoji-smile fs-2 d-block mb-2 opacity-50"></i>
+                    Nenhum cliente comprando abaixo do esperado.
+                </div>
                 {% endfor %}
             </div>
         </div>
@@ -41,23 +133,38 @@
     <!-- CLIENTES NOVOS -->
     <div class="col-lg-6">
         <div class="card border-0 shadow-sm h-100" style="border-radius: 12px;">
-            <div class="card-header bg-light fw-bold text-muted small border-bottom d-flex justify-content-between align-items-center">
+            <div class="card-header bg-light fw-bold text-muted small border-bottom d-flex justify-content-between align-items-center py-3">
                 <span><i class="bi bi-person-plus-fill me-1"></i> CLIENTES NOVOS ({{ novos | length }})</span>
+                <span class="text-muted fw-normal" style="letter-spacing: normal; text-transform: none;">cadastro mais recente primeiro</span>
             </div>
-            <div class="card-body" style="max-height: 600px; overflow-y: auto;">
+            <div class="list-group list-group-flush" style="max-height: 620px; overflow-y: auto;">
                 {% for cliente in novos %}
-                <div class="d-flex justify-content-between align-items-center border-bottom py-2">
-                    <div>
-                        <div class="fw-bold small text-dark">{{ cliente.razao_social }}</div>
-                        <span class="badge badge-light border">{{ cliente.cnpj | cnpj }}</span>
-                    </div>
-                    <div class="d-flex align-items-center gap-2">
-                        <span class="badge badge-light border">Cadastrado em {{ cliente.data_cadastro.strftime('%d/%m/%Y') }}</span>
-                        <a href="/cliente/{{ cliente.id }}" class="btn btn-sm btn-outline-primary-custom">Fazer primeiro contato</a>
+                {% set dias_desde_cadastro = (agora - cliente.data_cadastro).days %}
+                <div class="list-group-item px-3 py-3 border-start border-4" style="border-left-color: var(--accent) !important;">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <div class="d-flex align-items-center gap-3" style="min-width: 0;">
+                            <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 fw-bold"
+                                 style="width: 38px; height: 38px; background: var(--bg-accent); color: var(--text-accent);">
+                                {{ cliente.razao_social[0] | upper }}
+                            </div>
+                            <div style="min-width: 0;">
+                                <div class="fw-bold text-dark text-truncate">{{ cliente.razao_social }}</div>
+                                <span class="badge badge-light border">{{ cliente.cnpj | cnpj }}</span>
+                                <span class="small text-muted ms-1">
+                                    cadastrado {{ 'hoje' if dias_desde_cadastro == 0 else ('há 1 dia' if dias_desde_cadastro == 1 else 'há ' ~ dias_desde_cadastro ~ ' dias') }}
+                                </span>
+                            </div>
+                        </div>
+                        <a href="/cliente/{{ cliente.id }}" class="btn btn-sm btn-orange-custom flex-shrink-0">
+                            <i class="bi bi-telephone-fill me-1"></i> Fazer 1º contato
+                        </a>
                     </div>
                 </div>
                 {% else %}
-                <div class="text-center text-muted small py-4">Nenhum cliente novo sem contato ainda.</div>
+                <div class="text-center text-muted py-5">
+                    <i class="bi bi-emoji-smile fs-2 d-block mb-2 opacity-50"></i>
+                    Nenhum cliente novo sem contato ainda.
+                </div>
                 {% endfor %}
             </div>
         </div>

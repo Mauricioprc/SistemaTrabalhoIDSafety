@@ -13,9 +13,16 @@ from app.utils.formatters import limpar_input
 bp = Blueprint('raizen', __name__)
 
 
+FILTROS_PENDENCIA_VALIDOS = ('pedidos', 'propostas', 'ambos')
+
+
 @bp.route('/raizen')
 def raizen():
     q = request.args.get('q', '')
+    filtro = request.args.get('filtro', '')
+    if filtro not in FILTROS_PENDENCIA_VALIDOS:
+        filtro = ''  # qualquer valor desconhecido cai em "Todas", nunca quebra a tela
+
     if q:
         s = f"%{q}%"
         l = limpar_input(q)
@@ -27,6 +34,35 @@ def raizen():
     clientes_por_cnpj = {c.cnpj: c for c in Cliente.query.options(joinedload(Cliente.propostas)).all()}
     for u in unidades:
         u.cliente_vinculado = clientes_por_cnpj.get(limpar_input(u.cnpj))
+        # Sinalizadores de pendência calculados uma vez aqui (não no Jinja) —
+        # usados tanto pro filtro "pedidos pendentes / proposta pendente /
+        # ambos" quanto pelo template pra decidir cor/ícone do card.
+        u.tem_pedido_pendente = any(p.status == 'Pendente' for p in u.pedidos)
+        u.tem_proposta_pendente = bool(u.cliente_vinculado) and u.cliente_vinculado.status_cobranca == 'Pendente'
+
+    # Contagens pro rótulo de cada botão de filtro — sobre o resultado da
+    # busca (q) mas antes do filtro de pendência ser aplicado, senão o botão
+    # que não está ativo sempre mostraria a contagem já filtrada por ele
+    # mesmo (inútil pra decidir se vale a pena clicar).
+    contagens_filtro = {
+        'total': len(unidades),
+        'pedidos': sum(1 for u in unidades if u.tem_pedido_pendente),
+        'propostas': sum(1 for u in unidades if u.tem_proposta_pendente),
+        'ambos': sum(1 for u in unidades if u.tem_pedido_pendente and u.tem_proposta_pendente),
+    }
+
+    # O modal "Lançar Pedido" precisa listar TODAS as unidades da busca,
+    # mesmo com o filtro de pendência ativo reduzindo os cards visíveis —
+    # senão fica impossível lançar pedido pra uma unidade que sumiu da tela
+    # por não ter pendência ainda.
+    unidades_para_modal = list(unidades)
+
+    if filtro == 'pedidos':
+        unidades = [u for u in unidades if u.tem_pedido_pendente]
+    elif filtro == 'propostas':
+        unidades = [u for u in unidades if u.tem_proposta_pendente]
+    elif filtro == 'ambos':
+        unidades = [u for u in unidades if u.tem_pedido_pendente and u.tem_proposta_pendente]
 
     # --- ORDENAÇÃO INTELIGENTE ---
     # 3 = Pedido pendente ou proposta crítica (+15 dias) -> Topo
@@ -34,15 +70,13 @@ def raizen():
     # 1 = Sem pendência ativa, mas tem pedido cobrado
     # 0 = Sem nenhuma pendência
     def get_prioridade(u):
-        tem_pedido_pendente = any(p.status == 'Pendente' for p in u.pedidos)
         tem_pedido_cobrado = any(p.status == 'Cobrado' for p in u.pedidos)
         cliente = u.cliente_vinculado
         tem_proposta_critica = bool(cliente) and cliente.dias_parado_maximo > CRITICO_DIAS
-        tem_proposta_pendente = bool(cliente) and cliente.status_cobranca == 'Pendente'
 
-        if tem_pedido_pendente or tem_proposta_critica:
+        if u.tem_pedido_pendente or tem_proposta_critica:
             return 3
-        if tem_proposta_pendente:
+        if u.tem_proposta_pendente:
             return 2
         if tem_pedido_cobrado:
             return 1
@@ -50,7 +84,8 @@ def raizen():
 
     unidades = sorted(unidades, key=lambda u: (get_prioridade(u), u.nome), reverse=True)
 
-    return render_template('raizen.html', unidades=unidades, q=q, critico_dias=CRITICO_DIAS)
+    return render_template('raizen.html', unidades=unidades, unidades_para_modal=unidades_para_modal,
+                           q=q, critico_dias=CRITICO_DIAS, filtro=filtro, contagens_filtro=contagens_filtro)
 
 
 @bp.route('/marcar_cobrado/<int:id>')
@@ -74,9 +109,23 @@ def detalhe_unidade(id):
     cnpj_limpo = limpar_input(u.cnpj)
     cliente = Cliente.query.options(joinedload(Cliente.propostas)).filter_by(cnpj=cnpj_limpo).first() if cnpj_limpo else None
     propostas = sorted(cliente.propostas, key=lambda p: p.dias_parado, reverse=True) if cliente else []
+    qtd_propostas_pendentes = sum(1 for p in propostas if p.status_cobranca == 'Pendente')
+
+    filtro = request.args.get('filtro', '')
+    if filtro not in FILTROS_PENDENCIA_VALIDOS:
+        filtro = ''
+    # Mesmo filtro da lista de unidades (/raizen), aplicado aqui só nos dois
+    # blocos que são de fato "pendência": Propostas e Pedidos Pendentes
+    # ("Precisa de Ação"). Aguardando Retorno (pedido já cobrado) e
+    # Histórico (concluído) continuam sempre visíveis — não são pendência,
+    # são outra etapa do ciclo de vida do pedido.
+    mostrar_pedidos_pendentes = filtro in ('', 'pedidos', 'ambos')
+    mostrar_propostas = filtro in ('', 'propostas', 'ambos')
 
     return render_template('detalhe_unidade.html', unidade=u, pendentes=p1, cobrados=p2, concluidos=p3,
-                           cliente=cliente, propostas=propostas, critico_dias=CRITICO_DIAS)
+                           cliente=cliente, propostas=propostas, critico_dias=CRITICO_DIAS,
+                           qtd_propostas_pendentes=qtd_propostas_pendentes, filtro=filtro,
+                           mostrar_pedidos_pendentes=mostrar_pedidos_pendentes, mostrar_propostas=mostrar_propostas)
 
 
 @bp.route('/criar_unidade', methods=['POST'])
